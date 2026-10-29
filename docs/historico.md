@@ -37,6 +37,6 @@ em vez de depender da página do Claude.
 
 ## Falta fazer
 
-- [ ] Ligar o GitHub Pages (passo a passo no `README.md`, seção "Ligar a publicação").
+- [x] Deixar o repositório público e ligar o GitHub Pages (29/10/2026).
 - [ ] Abrir o endereço no celular e instalar.
 - [ ] Se já tinha contas na versão de teste, passar para o app novo pela cópia de segurança.

@@ -4,7 +4,7 @@ Aplicativo de celular para anotar **quem pegou doce e quem já pagou**. As conta
 quanto falta receber, quanto vendeu no mês, quanto já recebeu e o lucro.
 
 **Endereço do app:** https://danielfps.github.io/caderninho-dos-doces/
-(passa a funcionar depois do passo "Ligar a publicação", logo abaixo)
+(já publicado; o passo "Ligar a publicação" abaixo já foi feito)
 
 ## O que ele faz
 
