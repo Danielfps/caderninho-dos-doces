@@ -52,3 +52,27 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
 `cd app && python3 -m http.server 8000`. Playwright + Chromium já vêm instalados no ambiente do Claude Code:
 dá para testar o fluxo (cadastrar doce → anotar venda → receber pagamento → conferir Resumo) num celular
 emulado (`devices['Pixel 7']`).
+
+## Graphify (mapa do código) — regras
+
+O projeto tem um mapa do código em `graphify-out/` (`graph.json`, `GRAPH_REPORT.md`, `graph.html`),
+montado por `scripts/graphify.sh`. O script copia o projeto para uma pasta temporária, separa o `<script>`
+de `app/index.html` (o Graphify não lê JS dentro de HTML) mantendo os números de linha, e grava o resultado
+apontando para `app/index.html`. Se `graphify` não estiver instalado, o script instala (`pip install graphifyy==0.9.97`).
+
+**Ao responder qualquer pergunta sobre o projeto:**
+1. Se não houver `graphify-out/graph.json` ou o comando `graphify`, rode `scripts/graphify.sh` primeiro.
+2. Consulte o grafo **antes** de grep ou de abrir arquivos:
+   - `graphify explain "<função ou conceito>"` — o que é, onde está (arquivo:linha) e com quem se liga;
+   - `graphify query "<pergunta>"` — busca pelas palavras da pergunta; funciona melhor com nomes do código
+     (`registrarPag`, `saldo`, `render`, `restaurar`…), que estão em português abreviado;
+   - `graphify path "A" "B"` e `graphify affected "X"` — como duas partes se ligam / o que é afetado ao mexer em X;
+   - `graphify-out/GRAPH_REPORT.md` — visão geral (funções centrais, grupos).
+3. Só depois leia o código, e só as linhas que o grafo apontou. Responda dizendo de onde veio (arquivo:linha).
+
+**Depois de qualquer alteração no código** (antes do commit):
+1. Rode `scripts/graphify.sh` para atualizar `graphify-out/` e inclua essa pasta no mesmo commit
+   (`graphify-out/cache/` fica fora, pelo `.gitignore`). Diff grande em `graph.json` é esperado.
+2. Atualize este `CLAUDE.md` sempre que a mudança alterar algo descrito aqui (telas, funções auxiliares,
+   formato dos dados, arquivos, publicação, como testar).
+
