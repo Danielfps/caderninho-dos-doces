@@ -60,6 +60,8 @@ As contas da versão de teste ficam guardadas lá, não passam sozinhas para o a
 | `.github/workflows/pages.yml` | Publica a pasta `app/` no GitHub Pages |
 | `CLAUDE.md` | Contexto do projeto para o Claude Code |
 | `docs/historico.md` | Como o projeto começou e onde paramos |
+| `planilha/caderninho-planilha.xlsx` | Planilha de custos, preços e fiado (abre no Google Planilhas e no Excel) |
+| `planilha/gerar_planilha.py` | Gera a planilha (explicada em `docs/planilha.md`) |
 
 ## Testar no computador
 

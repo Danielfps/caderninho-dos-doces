@@ -47,6 +47,12 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
   (aparece na próxima abertura). Ao adicionar ou renomear arquivos do app, atualize a lista `ARQUIVOS`
   e troque `VERSAO` em `app/sw.js`.
 
+## Planilha
+
+`planilha/caderninho-planilha.xlsx`: custos, preços (valor da hora, preço sugerido, margem) e fiado.
+É gerada por `planilha/gerar_planilha.py` (openpyxl) — mude o script, não o .xlsx à mão.
+Estrutura, contas e a ligação planejada com os dados do app estão em `docs/planilha.md`.
+
 ## Testar
 
 `cd app && python3 -m http.server 8000`. Playwright + Chromium já vêm instalados no ambiente do Claude Code:

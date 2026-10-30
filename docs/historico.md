@@ -35,8 +35,18 @@ em vez de depender da página do Claude.
 - Testado num celular emulado: cadastrar doce, anotar venda, pagamento parcial, resumo,
   cópia de segurança e abrir sem internet.
 
+## Planilha de custos e preços (30/10/2026)
+
+- A partir de uma planilha de precificação de bolo de pote (Tábata Romero), foi feita a nossa:
+  `planilha/caderninho-planilha.xlsx`, com as cores do app, servindo para doces, salgados ou qualquer
+  coisa vendida no fiado. Detalhes em `docs/planilha.md`.
+- Além de ingredientes e receitas, ela tem as contas do mês, o salário que a pessoa quer tirar e as horas
+  de trabalho, e com isso calcula o valor da hora, o preço sugerido, a margem e a meta de vendas do mês.
+- Também tem Clientes, Vendas e Recebi, no mesmo formato do app, para depois o app preencher a planilha.
+
 ## Falta fazer
 
 - [x] Deixar o repositório público e ligar o GitHub Pages (29/10/2026).
 - [ ] Abrir o endereço no celular e instalar.
 - [ ] Se já tinha contas na versão de teste, passar para o app novo pela cópia de segurança.
+- [ ] Fazer o app preencher e gerar a planilha (ver "Ligação com o app" em `docs/planilha.md`).
