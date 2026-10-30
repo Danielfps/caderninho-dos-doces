@@ -109,6 +109,9 @@ montado por `scripts/graphify.sh`. O script copia o projeto para uma pasta tempo
 de `app/index.html` (o Graphify não lê JS dentro de HTML) mantendo os números de linha, e grava o resultado
 apontando para `app/index.html`. Se `graphify` não estiver instalado, o script instala (`pip install graphifyy==0.9.97`).
 
+Ganchos em `.claude/settings.json` fazem isso sozinhos: o script roda no começo de cada sessão e depois de
+cada edição de arquivo do projeto, e um lembrete aparece antes de buscas/leituras para consultar o grafo.
+
 **Ao responder qualquer pergunta sobre o projeto:**
 1. Se não houver `graphify-out/graph.json` ou o comando `graphify`, rode `scripts/graphify.sh` primeiro.
 2. Consulte o grafo **antes** de grep ou de abrir arquivos:
