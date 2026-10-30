@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>graphify - graphify-out/graph.html</title>
+<script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"
+        integrity="sha384-Ux6phic9PEHJ38YtrijhkzyJ8yQlH8i/+buBR8s3mAZOJrP1gwyvAcIYl3GWtpX1"
+        crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: #0f0f1a; --panel: #1a1a2e; --border: #2a2a4e; --input-border: #3a3a5e;
+    --text: #e0e0e0; --text-2: #aaa; --text-3: #ccc; --muted: #555; --count: #666;
+    --neighbor-border: #333; --node-label: #ffffff;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff; --panel: #f8f9fa; --border: #d9dee5; --input-border: #c3cad4;
+    --text: #222222; --text-2: #666666; --text-3: #333333; --muted: #888888; --count: #777777;
+    --neighbor-border: #ccc; --node-label: #222222;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #graph { flex: 1; }
+  #sidebar { width: 280px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  #search-wrap { padding: 12px; border-bottom: 1px solid var(--border); }
+  #search { width: 100%; background: var(--bg); border: 1px solid var(--input-border); color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 13px; outline: none; }
+  #search:focus { border-color: #4E79A7; }
+  #search-results { max-height: 140px; overflow-y: auto; padding: 4px 12px; border-bottom: 1px solid var(--border); display: none; }
+  .search-item { padding: 4px 6px; cursor: pointer; border-radius: 4px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .search-item:hover { background: var(--border); }
+  #info-panel { padding: 14px; border-bottom: 1px solid var(--border); min-height: 140px; }
+  #info-panel h3 { font-size: 13px; color: var(--text-2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  #info-content { font-size: 13px; color: var(--text-3); line-height: 1.6; }
+  #info-content .field { margin-bottom: 5px; }
+  #info-content .field b { color: var(--text); }
+  #info-content .empty { color: var(--muted); font-style: italic; }
+  .neighbor-link { display: block; padding: 2px 6px; margin: 2px 0; border-radius: 3px; cursor: pointer; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 3px solid var(--neighbor-border); }
+  .neighbor-link:hover { background: var(--border); }
+  #neighbors-list { max-height: 160px; overflow-y: auto; margin-top: 4px; }
+  #legend-wrap { flex: 1; overflow-y: auto; padding: 12px; }
+  #legend-wrap h3 { font-size: 13px; color: var(--text-2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; border-radius: 4px; font-size: 12px; }
+  .legend-item:hover { background: var(--border); padding-left: 4px; }
+  .legend-item.dimmed { opacity: 0.35; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .legend-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend-count { color: var(--count); font-size: 11px; }
+  #stats { padding: 10px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  #legend-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 4px 0; }
+  #legend-controls label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--text-2); user-select: none; }
+  #legend-controls label:hover { color: var(--text); }
+  .legend-cb, #select-all-cb { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; border: 1.5px solid var(--input-border); border-radius: 3px; background: var(--bg); cursor: pointer; position: relative; flex-shrink: 0; }
+  .legend-cb:checked, #select-all-cb:checked { background: #4E79A7; border-color: #4E79A7; }
+  .legend-cb:checked::after, #select-all-cb:checked::after { content: ''; position: absolute; left: 3.5px; top: 1px; width: 4px; height: 7px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  #select-all-cb:indeterminate { background: #4E79A7; border-color: #4E79A7; }
+  #select-all-cb:indeterminate::after { content: ''; position: absolute; left: 2px; top: 5px; width: 8px; height: 2px; background: #fff; border: none; transform: none; }
+  #theme-wrap { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  #theme-wrap button { flex: 1; background: var(--bg); color: var(--text-2); border: 1px solid var(--input-border); border-radius: 4px; padding: 3px 0; font-size: 11px; cursor: pointer; }
+  #theme-wrap button:hover { color: var(--text); }
+  #theme-wrap button[aria-pressed="true"] { background: #4E79A7; border-color: #4E79A7; color: #fff; }
+</style>
+<script id="graphify-theme-init">
+// Apply the saved theme before first paint (#3894). No saved choice keeps the
+// historical dark look; "system" follows prefers-color-scheme.
+(function () {
+  var pref = null;
+  try { pref = localStorage.getItem('graphify-theme'); } catch (e) {}
+  var t = pref === 'light' ? 'light'
+    : pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light'
+    : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+</head>
+<body>
+<div id="graph"></div>
+<div id="sidebar">
+  <div id="theme-wrap" role="group" aria-label="Theme">
+    <button type="button" data-theme-choice="light">Light</button>
+    <button type="button" data-theme-choice="dark">Dark</button>
+    <button type="button" data-theme-choice="system">System</button>
+  </div>
+  <div id="search-wrap">
+    <input id="search" type="text" placeholder="Search nodes..." autocomplete="off">
+    <div id="search-results"></div>
+  </div>
+  <div id="info-panel">
+    <h3>Node Info</h3>
+    <div id="info-content"><span class="empty">Click a node to inspect it</span></div>
+  </div>
+  <div id="legend-wrap">
+    <h3>Communities</h3>
+    <div id="legend-controls">
+      <label><input type="checkbox" id="select-all-cb" checked onchange="toggleAllCommunities(!this.checked)">Select All</label>
+    </div>
+    <div id="legend"></div>
+  </div>
+  <div id="stats">82 nodes &middot; 125 edges &middot; 12 communities</div>
+</div>
+<script>
+const RAW_NODES = [{"id": "app_index_html_abriridb", "label": "abrirIDB()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "abrirIDB()", "community": 2, "community_name": "registrarPag", "source_file": "app/index.html", "file_type": "code", "degree": 3}, {"id": "app_index_html_carregar", "label": "carregar()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "carregar()", "community": 2, "community_name": "registrarPag", "source_file": "app/index.html", "file_type": "code", "degree": 2}, {"id": "app_index_html_fechar", "label": "fechar()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "fechar()", "community": 2, "community_name": "registrarPag", "source_file": "app/index.html", "file_type": "code", "degree": 4}, {"id": "app_index_html_marcarbackup", "label": "marcarBackup()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "marcarBackup()", "community": 2, "community_name": "registrarPag", "source_file": "app/index.html", "file_type": "code", "degree": 2}, {"id": "app_index_html_registrarpag", "label": "registrarPag()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 17.7, "font": {"size": 12, "color": "#ffffff"}, "title": "registrarPag()", "community": 2, "community_name": "registrarPag", "source_file": "app/index.html", "file_type": "code", "degree": 8}, {"id": "app_index_html_restaurar", "label": "restaurar()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 16.8, "font": {"size": 12, "color": "#ffffff"}, "title": "restaurar()", "community": 2, "community_name": "registrarPag", "source_file": "app/index.html", "file_type": "code", "degree": 7}, {"id": "app_index_html_salvar", "label": "salvar()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 15.8, "font": {"size": 12, "color": "#ffffff"}, "title": "salvar()", "community": 2, "community_name": "registrarPag", "source_file": "app/index.html", "file_type": "code", "degree": 6}, {"id": "app_index_html_toast", "label": "toast()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "toast()", "community": 2, "community_name": "registrarPag", "source_file": "app/index.html", "file_type": "code", "degree": 4}, {"id": "app_index_html_abrir", "label": "abrir()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 16.8, "font": {"size": 12, "color": "#ffffff"}, "title": "abrir()", "community": 3, "community_name": "index.html", "source_file": "app/index.html", "file_type": "code", "degree": 7}, {"id": "app_index_html_blocoinstalar", "label": "blocoInstalar()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "blocoInstalar()", "community": 3, "community_name": "index.html", "source_file": "app/index.html", "file_type": "code", "degree": 2}, {"id": "app_index_html_comprimir", "label": "comprimir()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "comprimir()", "community": 3, "community_name": "index.html", "source_file": "app/index.html", "file_type": "code", "degree": 1}, {"id": "app_index_html_formcli", "label": "formCli()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "formCli()", "community": 3, "community_name": "index.html", "source_file": "app/index.html", "file_type": "code", "degree": 2}, {"id": "app_index_html_formconfig", "label": "formConfig()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "formConfig()", "community": 3, "community_name": "index.html", "source_file": "app/index.html", "file_type": "code", "degree": 3}, {"id": "app_index_html_formprod", "label": "formProd()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "formProd()", "community": 3, "community_name": "index.html", "source_file": "app/index.html", "file_type": "code", "degree": 2}, {"id": "app_index_html_perguntar", "label": "perguntar()", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "perguntar()", "community": 3, "community_name": "index.html", "source_file": "app/index.html", "file_type": "code", "degree": 3}, {"id": "app_index_html_parsemoney", "label": "parseMoney()", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "parseMoney()", "community": 4, "community_name": "Caderninho dos Doces \u2014 contexto para o Claude Code", "source_file": "app/index.html", "file_type": "code", "degree": 2}, {"id": "app_index_html_cardprod", "label": "cardProd()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "cardProd()", "community": 6, "community_name": "render", "source_file": "app/index.html", "file_type": "code", "degree": 2}, {"id": "app_index_html_ir", "label": "ir()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "ir()", "community": 6, "community_name": "render", "source_file": "app/index.html", "file_type": "code", "degree": 2}, {"id": "app_index_html_render", "label": "render()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 20.6, "font": {"size": 12, "color": "#ffffff"}, "title": "render()", "community": 6, "community_name": "render", "source_file": "app/index.html", "file_type": "code", "degree": 11}, {"id": "app_index_html_vcliente", "label": "vCliente()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "vCliente()", "community": 6, "community_name": "render", "source_file": "app/index.html", "file_type": "code", "degree": 4}, {"id": "app_index_html_vclientes", "label": "vClientes()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "vClientes()", "community": 6, "community_name": "render", "source_file": "app/index.html", "file_type": "code", "degree": 4}, {"id": "app_index_html_vprodutos", "label": "vProdutos()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "vProdutos()", "community": 6, "community_name": "render", "source_file": "app/index.html", "file_type": "code", "degree": 3}, {"id": "app_index_html_linhacli", "label": "linhaCli()", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "linhaCli()", "community": 8, "community_name": "saldo", "source_file": "app/index.html", "file_type": "code", "degree": 3}, {"id": "app_index_html_listaclienteshtml", "label": "listaClientesHTML()", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "listaClientesHTML()", "community": 8, "community_name": "saldo", "source_file": "app/index.html", "file_type": "code", "degree": 3}, {"id": "app_index_html_resumo", "label": "resumo()", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "resumo()", "community": 8, "community_name": "saldo", "source_file": "app/index.html", "file_type": "code", "degree": 4}, {"id": "app_index_html_saldo", "label": "saldo()", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 17.7, "font": {"size": 12, "color": "#ffffff"}, "title": "saldo()", "community": 8, "community_name": "saldo", "source_file": "app/index.html", "file_type": "code", "degree": 8}, {"id": "app_index_html_vresumo", "label": "vResumo()", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 14.8, "font": {"size": 12, "color": "#ffffff"}, "title": "vResumo()", "community": 8, "community_name": "saldo", "source_file": "app/index.html", "file_type": "code", "degree": 5}, {"id": "app_index_html_formpagar", "label": "formPagar()", "color": {"background": "#BAB0AC", "border": "#BAB0AC", "highlight": {"background": "#ffffff", "border": "#BAB0AC"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "formPagar()", "community": 9, "community_name": "hoje", "source_file": "app/index.html", "file_type": "code", "degree": 4}, {"id": "app_index_html_hoje", "label": "hoje()", "color": {"background": "#BAB0AC", "border": "#BAB0AC", "highlight": {"background": "#ffffff", "border": "#BAB0AC"}}, "size": 15.8, "font": {"size": 12, "color": "#ffffff"}, "title": "hoje()", "community": 9, "community_name": "hoje", "source_file": "app/index.html", "file_type": "code", "degree": 6}, {"id": "app_index_html_novavenda", "label": "novaVenda()", "color": {"background": "#BAB0AC", "border": "#BAB0AC", "highlight": {"background": "#ffffff", "border": "#BAB0AC"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "novaVenda()", "community": 9, "community_name": "hoje", "source_file": "app/index.html", "file_type": "code", "degree": 2}, {"id": "app_index_html_vvender", "label": "vVender()", "color": {"background": "#BAB0AC", "border": "#BAB0AC", "highlight": {"background": "#ffffff", "border": "#BAB0AC"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "vVender()", "community": 9, "community_name": "hoje", "source_file": "app/index.html", "file_type": "code", "degree": 3}, {"id": "github_workflows_pages", "label": "pages.yml", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 14.8, "font": {"size": 12, "color": "#ffffff"}, "title": "pages.yml", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 5}, {"id": "github_workflows_pages_concurrency", "label": "concurrency", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "concurrency", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 3}, {"id": "github_workflows_pages_concurrency_cancel_in_progress", "label": "cancel-in-progress", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "cancel-in-progress", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_concurrency_group", "label": "group", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "group", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_jobs", "label": "jobs", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "jobs", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 2}, {"id": "github_workflows_pages_name", "label": "name", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "name", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_on", "label": "on", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "on", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 3}, {"id": "github_workflows_pages_on_push", "label": "push", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "push", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_on_workflow_dispatch", "label": "workflow_dispatch", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "workflow_dispatch", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_permissions", "label": "permissions", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "permissions", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 4}, {"id": "github_workflows_pages_permissions_contents", "label": "contents", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "contents", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_permissions_id_token", "label": "id-token", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "id-token", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_permissions_pages", "label": "pages", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "pages", "community": 0, "community_name": "pages.yml", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_environment_name", "label": "name", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "name", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_environment_url", "label": "url", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "url", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_jobs_publicar", "label": "publicar", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 14.8, "font": {"size": 12, "color": "#ffffff"}, "title": "publicar", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 5}, {"id": "github_workflows_pages_publicar_environment", "label": "environment", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 12.9, "font": {"size": 0, "color": "#ffffff"}, "title": "environment", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 3}, {"id": "github_workflows_pages_publicar_if", "label": "if", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "if", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_publicar_runs_on", "label": "runs-on", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "runs-on", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_publicar_steps", "label": "steps", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 13.9, "font": {"size": 0, "color": "#ffffff"}, "title": "steps", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 4}, {"id": "github_workflows_pages_steps_id", "label": "id", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "id", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_steps_uses", "label": "uses", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "uses", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "github_workflows_pages_steps_with", "label": "with", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "with", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 2}, {"id": "github_workflows_pages_with_path", "label": "path", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "path", "community": 1, "community_name": "publicar", "source_file": ".github/workflows/pages.yml", "file_type": "code", "degree": 1}, {"id": "app_sw", "label": "sw.js", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "sw.js", "community": 10, "community_name": "sw.js", "source_file": "app/sw.js", "file_type": "code", "degree": 1}, {"id": "app_sw_arquivos", "label": "ARQUIVOS", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "ARQUIVOS", "community": 10, "community_name": "sw.js", "source_file": "app/sw.js", "file_type": "code", "degree": 1}, {"id": "scripts_graphify", "label": "graphify.sh", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "graphify.sh", "community": 11, "community_name": "graphify.sh", "source_file": "scripts/graphify.sh", "file_type": "code", "degree": 1}, {"id": "scripts_graphify_sh__entry", "label": "graphify.sh script", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "graphify.sh script", "community": 11, "community_name": "graphify.sh", "source_file": "scripts/graphify.sh", "file_type": "code", "degree": 1}, {"id": "claude_graphify_mapa_do_c\u00f3digo_regras", "label": "Graphify (mapa do c\u00f3digo) \u2014 regras", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 14.8, "font": {"size": 12, "color": "#ffffff"}, "title": "Graphify (mapa do c\u00f3digo) \u2014 regras", "community": 2, "community_name": "registrarPag", "source_file": "CLAUDE.md", "file_type": "document", "degree": 5}, {"id": "app_index_html", "label": "index.html", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 40.0, "font": {"size": 12, "color": "#ffffff"}, "title": "index.html", "community": 3, "community_name": "index.html", "source_file": "app/index.html", "file_type": "code", "degree": 31}, {"id": "claude", "label": "CLAUDE.md", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "CLAUDE.md", "community": 4, "community_name": "Caderninho dos Doces \u2014 contexto para o Claude Code", "source_file": "CLAUDE.md", "file_type": "document", "degree": 1}, {"id": "claude_caderninho_dos_doces_contexto_para_o_claude_code", "label": "Caderninho dos Doces \u2014 contexto para o Claude Code", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 16.8, "font": {"size": 12, "color": "#ffffff"}, "title": "Caderninho dos Doces \u2014 contexto para o Claude Code", "community": 4, "community_name": "Caderninho dos Doces \u2014 contexto para o Claude Code", "source_file": "CLAUDE.md", "file_type": "document", "degree": 7}, {"id": "claude_como_\u00e9_feito", "label": "Como \u00e9 feito", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 15.8, "font": {"size": 12, "color": "#ffffff"}, "title": "Como \u00e9 feito", "community": 4, "community_name": "Caderninho dos Doces \u2014 contexto para o Claude Code", "source_file": "CLAUDE.md", "file_type": "document", "degree": 6}, {"id": "claude_dados_n\u00e3o_quebrar", "label": "Dados (n\u00e3o quebrar!)", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Dados (n\u00e3o quebrar!)", "community": 4, "community_name": "Caderninho dos Doces \u2014 contexto para o Claude Code", "source_file": "CLAUDE.md", "file_type": "document", "degree": 1}, {"id": "claude_publica\u00e7\u00e3o", "label": "Publica\u00e7\u00e3o", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Publica\u00e7\u00e3o", "community": 4, "community_name": "Caderninho dos Doces \u2014 contexto para o Claude Code", "source_file": "CLAUDE.md", "file_type": "document", "degree": 1}, {"id": "claude_quem_usa", "label": "Quem usa", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Quem usa", "community": 4, "community_name": "Caderninho dos Doces \u2014 contexto para o Claude Code", "source_file": "CLAUDE.md", "file_type": "document", "degree": 1}, {"id": "claude_testar", "label": "Testar", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Testar", "community": 4, "community_name": "Caderninho dos Doces \u2014 contexto para o Claude Code", "source_file": "CLAUDE.md", "file_type": "document", "degree": 1}, {"id": "readme", "label": "README.md", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "README.md", "community": 5, "community_name": "\ud83e\uddc1 Caderninho dos Doces", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_arquivos", "label": "Arquivos", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Arquivos", "community": 5, "community_name": "\ud83e\uddc1 Caderninho dos Doces", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_caderninho_dos_doces", "label": "\ud83e\uddc1 Caderninho dos Doces", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 15.8, "font": {"size": 12, "color": "#ffffff"}, "title": "\ud83e\uddc1 Caderninho dos Doces", "community": 5, "community_name": "\ud83e\uddc1 Caderninho dos Doces", "source_file": "README.md", "file_type": "document", "degree": 6}, {"id": "readme_instalar_no_celular", "label": "Instalar no celular", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.9, "font": {"size": 0, "color": "#ffffff"}, "title": "Instalar no celular", "community": 5, "community_name": "\ud83e\uddc1 Caderninho dos Doces", "source_file": "README.md", "file_type": "document", "degree": 2}, {"id": "readme_j\u00e1_usava_a_vers\u00e3o_de_teste_no_claude", "label": "J\u00e1 usava a vers\u00e3o de teste (no Claude)?", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "J\u00e1 usava a vers\u00e3o de teste (no Claude)?", "community": 5, "community_name": "\ud83e\uddc1 Caderninho dos Doces", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_ligar_a_publica\u00e7\u00e3o_uma_vez_s\u00f3", "label": "Ligar a publica\u00e7\u00e3o (uma vez s\u00f3)", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Ligar a publica\u00e7\u00e3o (uma vez s\u00f3)", "community": 5, "community_name": "\ud83e\uddc1 Caderninho dos Doces", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_o_que_ele_faz", "label": "O que ele faz", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "O que ele faz", "community": 5, "community_name": "\ud83e\uddc1 Caderninho dos Doces", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "readme_testar_no_computador", "label": "Testar no computador", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Testar no computador", "community": 5, "community_name": "\ud83e\uddc1 Caderninho dos Doces", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "docs_historico", "label": "historico.md", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "historico.md", "community": 7, "community_name": "Hist\u00f3rico do projeto", "source_file": "docs/historico.md", "file_type": "document", "degree": 1}, {"id": "docs_historico_como_come\u00e7ou_conversa_no_claude", "label": "Como come\u00e7ou (conversa no Claude)", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Como come\u00e7ou (conversa no Claude)", "community": 7, "community_name": "Hist\u00f3rico do projeto", "source_file": "docs/historico.md", "file_type": "document", "degree": 1}, {"id": "docs_historico_falta_fazer", "label": "Falta fazer", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Falta fazer", "community": 7, "community_name": "Hist\u00f3rico do projeto", "source_file": "docs/historico.md", "file_type": "document", "degree": 1}, {"id": "docs_historico_hist\u00f3rico_do_projeto", "label": "Hist\u00f3rico do projeto", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 14.8, "font": {"size": 12, "color": "#ffffff"}, "title": "Hist\u00f3rico do projeto", "community": 7, "community_name": "Hist\u00f3rico do projeto", "source_file": "docs/historico.md", "file_type": "document", "degree": 5}, {"id": "docs_historico_o_que_foi_feito_na_passagem_para_o_claude_code_29_10_2026", "label": "O que foi feito na passagem para o Claude Code (29/10/2026)", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "O que foi feito na passagem para o Claude Code (29/10/2026)", "community": 7, "community_name": "Hist\u00f3rico do projeto", "source_file": "docs/historico.md", "file_type": "document", "degree": 1}, {"id": "docs_historico_onde_a_gente_parou", "label": "Onde a gente parou", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 11.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Onde a gente parou", "community": 7, "community_name": "Hist\u00f3rico do projeto", "source_file": "docs/historico.md", "file_type": "document", "degree": 1}];
+const RAW_EDGES = [{"from": "app_index_html_carregar", "to": "app_index_html_abriridb", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_salvar", "to": "app_index_html_abriridb", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_abriridb", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_carregar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_registrarpag", "to": "app_index_html_fechar", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_restaurar", "to": "app_index_html_fechar", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_fechar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_como_\u00e9_feito", "to": "app_index_html_fechar", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html_marcarbackup", "to": "app_index_html_salvar", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_marcarbackup", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_registrarpag", "to": "app_index_html_hoje", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_registrarpag", "to": "app_index_html_render", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_registrarpag", "to": "app_index_html_salvar", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_registrarpag", "to": "app_index_html_saldo", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_registrarpag", "to": "app_index_html_toast", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_registrarpag", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_graphify_mapa_do_c\u00f3digo_regras", "to": "app_index_html_registrarpag", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html_restaurar", "to": "app_index_html_toast", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_restaurar", "to": "app_index_html_perguntar", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_restaurar", "to": "app_index_html_render", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_restaurar", "to": "app_index_html_salvar", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_restaurar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_graphify_mapa_do_c\u00f3digo_regras", "to": "app_index_html_restaurar", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html_salvar", "to": "app_index_html_toast", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_salvar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_toast", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_formcli", "to": "app_index_html_abrir", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_formconfig", "to": "app_index_html_abrir", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_formpagar", "to": "app_index_html_abrir", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_formprod", "to": "app_index_html_abrir", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_perguntar", "to": "app_index_html_abrir", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_abrir", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_como_\u00e9_feito", "to": "app_index_html_abrir", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html_formconfig", "to": "app_index_html_blocoinstalar", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_blocoinstalar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_comprimir", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_formcli", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_formconfig", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_formprod", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_perguntar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_parsemoney", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_como_\u00e9_feito", "to": "app_index_html_parsemoney", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html", "to": "app_index_html_cardprod", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_vprodutos", "to": "app_index_html_cardprod", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html_ir", "to": "app_index_html_render", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_ir", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_render", "to": "app_index_html_vcliente", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_render", "to": "app_index_html_vclientes", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_render", "to": "app_index_html_vprodutos", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_render", "to": "app_index_html_vresumo", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_render", "to": "app_index_html_vvender", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_render", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_graphify_mapa_do_c\u00f3digo_regras", "to": "app_index_html_render", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "claude_como_\u00e9_feito", "to": "app_index_html_render", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html_vcliente", "to": "app_index_html_vclientes", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_vcliente", "to": "app_index_html_saldo", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_vcliente", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_vclientes", "to": "app_index_html_listaclienteshtml", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_vclientes", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_vprodutos", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_linhacli", "to": "app_index_html_saldo", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_linhacli", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_listaclienteshtml", "to": "app_index_html_linhacli", "label": "indirect_call", "title": "indirect_call [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html", "to": "app_index_html_listaclienteshtml", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_resumo", "to": "app_index_html_saldo", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_vresumo", "to": "app_index_html_resumo", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_resumo", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_como_\u00e9_feito", "to": "app_index_html_resumo", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html_formpagar", "to": "app_index_html_saldo", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_vresumo", "to": "app_index_html_saldo", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_saldo", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_graphify_mapa_do_c\u00f3digo_regras", "to": "app_index_html_saldo", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "app_index_html_vresumo", "to": "app_index_html_hoje", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_vresumo", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_formpagar", "to": "app_index_html_hoje", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_formpagar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_novavenda", "to": "app_index_html_hoje", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html_vvender", "to": "app_index_html_hoje", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_hoje", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_novavenda", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_index_html", "to": "app_index_html_vvender", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages", "to": "github_workflows_pages_name", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages", "to": "github_workflows_pages_concurrency", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages", "to": "github_workflows_pages_jobs", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages", "to": "github_workflows_pages_on", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages", "to": "github_workflows_pages_permissions", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_concurrency", "to": "github_workflows_pages_concurrency_group", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_concurrency", "to": "github_workflows_pages_concurrency_cancel_in_progress", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_jobs", "to": "github_workflows_pages_jobs_publicar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_on", "to": "github_workflows_pages_on_push", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_on", "to": "github_workflows_pages_on_workflow_dispatch", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_permissions", "to": "github_workflows_pages_permissions_pages", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_permissions", "to": "github_workflows_pages_permissions_id_token", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_permissions", "to": "github_workflows_pages_permissions_contents", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_publicar_environment", "to": "github_workflows_pages_environment_name", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_publicar_environment", "to": "github_workflows_pages_environment_url", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_jobs_publicar", "to": "github_workflows_pages_publicar_if", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_jobs_publicar", "to": "github_workflows_pages_publicar_runs_on", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_jobs_publicar", "to": "github_workflows_pages_publicar_environment", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_jobs_publicar", "to": "github_workflows_pages_publicar_steps", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_publicar_steps", "to": "github_workflows_pages_steps_with", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_publicar_steps", "to": "github_workflows_pages_steps_id", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_publicar_steps", "to": "github_workflows_pages_steps_uses", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "github_workflows_pages_steps_with", "to": "github_workflows_pages_with_path", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "app_sw", "to": "app_sw_arquivos", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "scripts_graphify", "to": "scripts_graphify_sh__entry", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_caderninho_dos_doces_contexto_para_o_claude_code", "to": "claude_graphify_mapa_do_c\u00f3digo_regras", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude", "to": "claude_caderninho_dos_doces_contexto_para_o_claude_code", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_caderninho_dos_doces_contexto_para_o_claude_code", "to": "claude_como_\u00e9_feito", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_caderninho_dos_doces_contexto_para_o_claude_code", "to": "claude_dados_n\u00e3o_quebrar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_caderninho_dos_doces_contexto_para_o_claude_code", "to": "claude_publica\u00e7\u00e3o", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_caderninho_dos_doces_contexto_para_o_claude_code", "to": "claude_testar", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_caderninho_dos_doces_contexto_para_o_claude_code", "to": "claude_quem_usa", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme", "to": "readme_caderninho_dos_doces", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_caderninho_dos_doces", "to": "readme_arquivos", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_caderninho_dos_doces", "to": "readme_ligar_a_publica\u00e7\u00e3o_uma_vez_s\u00f3", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_caderninho_dos_doces", "to": "readme_instalar_no_celular", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_caderninho_dos_doces", "to": "readme_testar_no_computador", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_caderninho_dos_doces", "to": "readme_o_que_ele_faz", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "readme_instalar_no_celular", "to": "readme_j\u00e1_usava_a_vers\u00e3o_de_teste_no_claude", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "docs_historico", "to": "docs_historico_hist\u00f3rico_do_projeto", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "docs_historico_hist\u00f3rico_do_projeto", "to": "docs_historico_como_come\u00e7ou_conversa_no_claude", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "docs_historico_hist\u00f3rico_do_projeto", "to": "docs_historico_falta_fazer", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "docs_historico_hist\u00f3rico_do_projeto", "to": "docs_historico_onde_a_gente_parou", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "docs_historico_hist\u00f3rico_do_projeto", "to": "docs_historico_o_que_foi_feito_na_passagem_para_o_claude_code_29_10_2026", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}];
+const LEGEND = [{"cid": 0, "color": "#4E79A7", "label": "pages.yml", "count": 13}, {"cid": 1, "color": "#F28E2B", "label": "publicar", "count": 11}, {"cid": 2, "color": "#E15759", "label": "registrarPag", "count": 9}, {"cid": 3, "color": "#76B7B2", "label": "index.html", "count": 8}, {"cid": 4, "color": "#59A14F", "label": "Caderninho dos Doces \u2014 contexto para o Claude Code", "count": 8}, {"cid": 5, "color": "#EDC948", "label": "\ud83e\uddc1 Caderninho dos Doces", "count": 8}, {"cid": 6, "color": "#B07AA1", "label": "render", "count": 6}, {"cid": 7, "color": "#FF9DA7", "label": "Hist\u00f3rico do projeto", "count": 6}, {"cid": 8, "color": "#9C755F", "label": "saldo", "count": 5}, {"cid": 9, "color": "#BAB0AC", "label": "hoje", "count": 4}, {"cid": 10, "color": "#4E79A7", "label": "sw.js", "count": 2}, {"cid": 11, "color": "#F28E2B", "label": "graphify.sh", "count": 2}];
+
+// HTML-escape helper — prevents XSS when injecting graph data into innerHTML
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Build vis datasets
+const nodesDS = new vis.DataSet(RAW_NODES.map((n, i) => ({
+  id: n.id, label: n.label, color: n.color, size: n.size,
+  font: n.font, title: n.title,
+  // Fermat/golden-angle spiral seed positions (#3699): spreading nodes out
+  // before physics runs keeps avoidOverlap from computing near-zero-distance
+  // repulsion that blows the BarnesHut recursion into a stack overflow on large
+  // graphs. `i` is the map index — physics still settles small graphs identically.
+  x: 30 * Math.sqrt(i) * Math.cos(i * 2.4),
+  y: 30 * Math.sqrt(i) * Math.sin(i * 2.4),
+  community: n.community, community_name: n.community_name,
+  source_file: n.source_file, file_type: n.file_type, degree: n.degree,
+  member_count: n.member_count,
+})));
+
+const edgesDS = new vis.DataSet(RAW_EDGES.map((e, i) => ({
+  id: i, from: e.from, to: e.to,
+  label: '',
+  title: e.title,
+  dashes: e.dashes,
+  width: e.width,
+  color: e.color,
+  arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+})));
+
+const container = document.getElementById('graph');
+const network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, {
+  physics: {
+    enabled: true,
+    solver: 'forceAtlas2Based',
+    forceAtlas2Based: {
+      gravitationalConstant: -60,
+      centralGravity: 0.005,
+      springLength: 120,
+      springConstant: 0.08,
+      damping: 0.4,
+      avoidOverlap: 0.8,
+    },
+    stabilization: { iterations: 200, fit: true },
+  },
+  interaction: {
+    hover: true,
+    tooltipDelay: 100,
+    hideEdgesOnDrag: true,
+    navigationButtons: false,
+    keyboard: false,
+  },
+  nodes: { shape: 'dot', borderWidth: 1.5 },
+  edges: { smooth: { type: 'continuous', roundness: 0.2 }, selectionWidth: 3 },
+});
+
+// Theme toggle (#3894): Light / Dark / System, persisted in localStorage.
+const THEME_KEY = 'graphify-theme';
+const themeMQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+let themeLabelColor = '#ffffff';  // matches the per-node font color set in Python
+function themePref() {
+  let p = null;
+  try { p = localStorage.getItem(THEME_KEY); } catch (e) {}
+  return (p === 'light' || p === 'dark' || p === 'system') ? p : null;
+}
+function applyTheme(pref) {
+  const t = pref === 'light' ? 'light' : (pref === 'system' && themeMQ && themeMQ.matches) ? 'light' : 'dark';
+  const root = document.documentElement;
+  if (!root) return;
+  root.setAttribute('data-theme', t);
+  document.querySelectorAll('[data-theme-choice]').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.themeChoice === (pref || 'dark')));
+  });
+  const labelColor = getComputedStyle(root).getPropertyValue('--node-label').trim();
+  if (labelColor && labelColor !== themeLabelColor) {
+    themeLabelColor = labelColor;
+    nodesDS.update(nodesDS.get().map(n => ({ id: n.id, font: Object.assign({}, n.font, { color: labelColor }) })));
+  }
+}
+document.querySelectorAll('[data-theme-choice]').forEach(b => {
+  b.addEventListener('click', () => {
+    const pref = b.dataset.themeChoice;
+    try { localStorage.setItem(THEME_KEY, pref); } catch (e) {}
+    applyTheme(pref);
+  });
+});
+if (themeMQ) {
+  const onSchemeChange = () => { if (themePref() === 'system') applyTheme('system'); };
+  if (themeMQ.addEventListener) themeMQ.addEventListener('change', onSchemeChange);
+  else if (themeMQ.addListener) themeMQ.addListener(onSchemeChange);
+}
+applyTheme(themePref());
+
+network.once('stabilizationIterationsDone', () => {
+  network.setOptions({ physics: { enabled: false } });
+});
+
+function showInfo(nodeId) {
+  const n = nodesDS.get(nodeId);
+  if (!n) return;
+  const neighborIds = network.getConnectedNodes(nodeId);
+  const neighborItems = neighborIds.map(nid => {
+    const nb = nodesDS.get(nid);
+    const color = nb ? nb.color.background : '#555';
+    return `<span class="neighbor-link" style="border-left-color:${esc(color)}" data-nid="${esc(nid)}">${esc(nb ? nb.label : nid)}</span>`;
+  }).join('');
+  const isMetaNode = !n.file_type && !n.source_file;
+  let html = `<div class="field"><b>${esc(n.label)}</b></div>`;
+  if (!isMetaNode) {
+    html += `<div class="field">Type: ${esc(n.file_type || 'unknown')}</div>`;
+  }
+  html += `<div class="field">Community: ${esc(n.community_name || '')}</div>`;
+  if (!isMetaNode) {
+    html += `<div class="field">Source: ${esc(n.source_file || '-')}</div>`;
+  } else if (n.member_count !== undefined && n.member_count !== null) {
+    html += `<div class="field">Members: ${esc(n.member_count)}</div>`;
+  }
+  html += `<div class="field">Degree: ${n.degree}</div>`;
+  if (neighborIds.length) {
+    html += `<div class="field" style="margin-top:8px;color:var(--text-2);font-size:11px">Neighbors (${neighborIds.length})</div><div id="neighbors-list">${neighborItems}</div>`;
+  }
+  document.getElementById('info-content').innerHTML = html;
+}
+
+function focusNode(nodeId) {
+  network.focus(nodeId, { scale: 1.4, animation: true });
+  network.selectNodes([nodeId]);
+  showInfo(nodeId);
+}
+
+// Neighbor links use a data attribute + one delegated listener rather than an
+// inline onclick. A node id/label sourced from a document or a scraped URL
+// (graphify add) can contain a double-quote; dropping the stringified id
+// unescaped into a quoted onclick both broke every link and allowed a hostile
+// source to inject an event handler into the local report (stored XSS, #1838).
+// esc() on data-nid keeps the value inside the attribute; the listener reads it
+// back verbatim. Bound to document so it survives the innerHTML rebuild that
+// recreates #neighbors-list on each showInfo().
+document.addEventListener('click', e => {
+  const el = e.target.closest('.neighbor-link');
+  if (el && el.dataset.nid !== undefined) focusNode(el.dataset.nid);
+});
+
+// Sidebar tooltips reuse vis-network's .vis-tooltip style and 100ms tooltipDelay.
+// Names get one only when CSS ellipsis truncates them (the full text is still in
+// the DOM); counts always get one, to say what the number is. Text is set with
+// textContent only (labels are untrusted). Delegated on document so rows rebuilt
+// later (search results, showInfo()) are covered.
+const sidebarTip = document.createElement('div');
+sidebarTip.className = 'vis-tooltip';
+sidebarTip.style.cssText = 'white-space: normal; max-width: 360px; overflow-wrap: break-word;';
+document.body.appendChild(sidebarTip);
+let sidebarTipTimer = null;
+let sidebarTipEl = null;    // element whose text the tooltip shows
+let sidebarTipZone = null;  // element the pointer must leave to hide it
+function hideSidebarTip() {
+  clearTimeout(sidebarTipTimer);
+  sidebarTip.style.visibility = 'hidden';
+  sidebarTip.textContent = '';
+  sidebarTipEl = sidebarTipZone = null;
+}
+document.addEventListener('mouseover', e => {
+  const zone = e.target.closest && e.target.closest('.legend-count, .legend-item, .search-item, .neighbor-link');
+  // Anywhere on a legend row except its count (dot, checkbox, gaps, padding)
+  // stands for the row's name, so moving within the row never re-triggers it.
+  const el = zone && zone.classList.contains('legend-item') ? zone.querySelector('.legend-label') : zone;
+  if (!el || el === sidebarTipEl) return;
+  hideSidebarTip();
+  const isCount = el.classList.contains('legend-count');
+  if (!isCount && el.scrollWidth <= el.clientWidth) return;
+  const text = isCount ? `${el.textContent} ${el.textContent === '1' ? 'node' : 'nodes'}` : el.textContent;
+  sidebarTipEl = el;
+  sidebarTipZone = zone;
+  const x = e.clientX, y = e.clientY;
+  sidebarTipTimer = setTimeout(() => {
+    sidebarTip.textContent = text;
+    sidebarTip.style.left = sidebarTip.style.top = '0px';  // measure at full max-width
+    sidebarTip.style.visibility = 'visible';
+    const w = sidebarTip.offsetWidth, h = sidebarTip.offsetHeight;
+    sidebarTip.style.left = Math.max(4, Math.min(x + 12, window.innerWidth - w - 4)) + 'px';
+    sidebarTip.style.top = (y + 16 + h > window.innerHeight ? Math.max(4, y - h - 8) : y + 16) + 'px';
+  }, 100);
+});
+document.addEventListener('mouseout', e => {
+  if (sidebarTipZone && !sidebarTipZone.contains(e.relatedTarget)) hideSidebarTip();
+});
+// A click rebuilds or hides the row (showInfo(), search pick) without a mouseout.
+document.addEventListener('mousedown', hideSidebarTip);
+
+// Track hovered node — hover detection is more reliable than click params
+let hoveredNodeId = null;
+network.on('hoverNode', params => {
+  hoveredNodeId = params.node;
+  container.style.cursor = 'pointer';
+});
+network.on('blurNode', () => {
+  hoveredNodeId = null;
+  container.style.cursor = 'default';
+});
+container.addEventListener('click', () => {
+  if (hoveredNodeId !== null) {
+    showInfo(hoveredNodeId);
+    network.selectNodes([hoveredNodeId]);
+  }
+});
+network.on('click', params => {
+  if (params.nodes.length > 0) {
+    showInfo(params.nodes[0]);
+  } else if (hoveredNodeId === null) {
+    document.getElementById('info-content').innerHTML = '<span class="empty">Click a node to inspect it</span>';
+  }
+});
+
+const searchInput = document.getElementById('search');
+const searchResults = document.getElementById('search-results');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase().trim();
+  searchResults.innerHTML = '';
+  if (!q) { searchResults.style.display = 'none'; return; }
+  const matches = RAW_NODES.filter(n => n.label.toLowerCase().includes(q)).slice(0, 20);
+  if (!matches.length) { searchResults.style.display = 'none'; return; }
+  searchResults.style.display = 'block';
+  matches.forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'search-item';
+    el.textContent = n.label;
+    el.style.borderLeft = `3px solid ${n.color.background}`;
+    el.style.paddingLeft = '8px';
+    el.onclick = () => {
+      network.focus(n.id, { scale: 1.5, animation: true });
+      network.selectNodes([n.id]);
+      showInfo(n.id);
+      searchResults.style.display = 'none';
+      searchInput.value = '';
+    };
+    searchResults.appendChild(el);
+  });
+});
+document.addEventListener('click', e => {
+  if (!searchResults.contains(e.target) && e.target !== searchInput)
+    searchResults.style.display = 'none';
+});
+
+const hiddenCommunities = new Set();
+
+const selectAllCb = document.getElementById('select-all-cb');
+
+function updateSelectAllState() {
+  const total = LEGEND.length;
+  const hidden = hiddenCommunities.size;
+  selectAllCb.checked = hidden === 0;
+  selectAllCb.indeterminate = hidden > 0 && hidden < total;
+}
+
+function toggleAllCommunities(hide) {
+  document.querySelectorAll('.legend-item').forEach(item => {
+    hide ? item.classList.add('dimmed') : item.classList.remove('dimmed');
+  });
+  document.querySelectorAll('.legend-cb').forEach(cb => {
+    cb.checked = !hide;
+  });
+  LEGEND.forEach(c => {
+    if (hide) hiddenCommunities.add(c.cid); else hiddenCommunities.delete(c.cid);
+  });
+  const updates = RAW_NODES.map(n => ({ id: n.id, hidden: hide }));
+  nodesDS.update(updates);
+  updateSelectAllState();
+}
+
+const legendEl = document.getElementById('legend');
+LEGEND.forEach(c => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.className = 'legend-cb';
+  cb.checked = true;
+  cb.addEventListener('change', (e) => {
+    e.stopPropagation();
+    if (cb.checked) {
+      hiddenCommunities.delete(c.cid);
+      item.classList.remove('dimmed');
+    } else {
+      hiddenCommunities.add(c.cid);
+      item.classList.add('dimmed');
+    }
+    const updates = RAW_NODES
+      .filter(n => n.community === c.cid)
+      .map(n => ({ id: n.id, hidden: !cb.checked }));
+    nodesDS.update(updates);
+    updateSelectAllState();
+  });
+  item.innerHTML = `<div class="legend-dot" style="background:${c.color}"></div>
+    <span class="legend-label">${c.label}</span>
+    <span class="legend-count">${c.count}</span>`;
+  item.prepend(cb);
+  item.onclick = (e) => {
+    if (e.target === cb) return;
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change'));
+  };
+  legendEl.appendChild(item);
+});
+</script>
+<script>
+// Render hyperedges as shaded regions
+const hyperedges = [];
+// afterDrawing passes ctx already transformed to network coordinate space.
+// Draw node positions raw — no manual pan/zoom/DPR math needed.
+
+// Andrew's monotone chain. Returns the hull in counter-clockwise order, which
+// is what the perimeter must be traced in. Collinear and duplicate points
+// collapse to the extremes, so degenerate member sets render as a segment
+// rather than a zero-area crossed path.
+function convexHull(pts) {
+    const p = pts.slice().sort((a, b) => (a.x - b.x) || (a.y - b.y));
+    if (p.length < 3) return p;
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const build = seq => {
+        const out = [];
+        for (const q of seq) {
+            while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], q) <= 0) out.pop();
+            out.push(q);
+        }
+        out.pop();
+        return out;
+    };
+    const hull = build(p).concat(build(p.slice().reverse()));
+    return hull.length >= 3 ? hull : p;
+}
+network.on('afterDrawing', function(ctx) {
+    hyperedges.forEach(h => {
+        const positions = h.nodes
+            .map(nid => network.getPositions([nid])[nid])
+            .filter(p => p !== undefined);
+        if (positions.length < 2) return;
+        ctx.save();
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = '#6366f1';
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Centroid and expanded hull in network coordinates.
+        // The perimeter must follow hull order, not h.nodes order: tracing the
+        // raw member order self-intersects whenever the layout does not happen
+        // to place members in angular order, filling as crossed wedges.
+        const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length;
+        const cy = positions.reduce((s, p) => s + p.y, 0) / positions.length;
+        const hull = convexHull(positions);
+        const expanded = hull.map(p => ({
+            x: cx + (p.x - cx) * 1.15,
+            y: cy + (p.y - cy) * 1.15
+        }));
+        ctx.moveTo(expanded[0].x, expanded[0].y);
+        expanded.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 0.4;
+        ctx.stroke();
+        // Label
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#4f46e5';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.label, cx, cy - 5);
+        ctx.restore();
+    });
+});
+</script>
+</body>
+</html>

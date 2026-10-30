@@ -74,6 +74,8 @@ As contas da versão de teste ficam guardadas lá, não passam sozinhas para o a
 | `.github/workflows/pages.yml` | Publica a pasta `app/` no GitHub Pages |
 | `CLAUDE.md` | Contexto do projeto para o Claude Code |
 | `docs/historico.md` | Como o projeto começou e onde paramos |
+| `graphify-out/` | Mapa do código (Graphify) que o Claude Code consulta para responder perguntas |
+| `scripts/graphify.sh` | Refaz o mapa do código |
 
 ## Testar no computador
 

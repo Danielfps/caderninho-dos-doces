@@ -1,0 +1,86 @@
+{
+  ".github/workflows/pages.yml": {
+    "mtime": 1793397386.6370416,
+    "seen": 1793397387.4453607,
+    "ast_hash": "b153f9639459444a35e02548bc8a9fd2",
+    "semantic_hash": ""
+  },
+  "app/index.html": {
+    "mtime": 1793397386.6725976,
+    "seen": 1793397387.4453702,
+    "ast_hash": "cc9d8d4ab7a7acebea478872bd032f74",
+    "semantic_hash": ""
+  },
+  "app/sw.js": {
+    "mtime": 1793397386.637585,
+    "seen": 1793397387.4453738,
+    "ast_hash": "11b7035e6da9138fd3d4e23084aced2b",
+    "semantic_hash": ""
+  },
+  "scripts/graphify.sh": {
+    "mtime": 1793397386.636916,
+    "seen": 1793397387.445376,
+    "ast_hash": "c19da565db3cf408c4c7ad2305ab4b77",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1793397386.637077,
+    "seen": 1793397387.4453785,
+    "ast_hash": "51a9e708ec30e140e25ec556251872b7",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1793397386.637113,
+    "seen": 1793397387.4453807,
+    "ast_hash": "c09c1e5f3e4ca7af012412135cb5aa8d",
+    "semantic_hash": ""
+  },
+  "app/index.html": {
+    "mtime": 1793397386.637502,
+    "seen": 1793397387.4453826,
+    "ast_hash": "ca6a529dcd5744510ec4f96cf2abf844",
+    "semantic_hash": ""
+  },
+  "docs/historico.md": {
+    "mtime": 1793397386.637663,
+    "seen": 1793397387.4453843,
+    "ast_hash": "3343e5d89208684dcb69514080344ab6",
+    "semantic_hash": ""
+  },
+  "app/icons/apple-touch-icon.png": {
+    "mtime": 1793397386.6371841,
+    "seen": 1793397387.445386,
+    "ast_hash": "8bffd37d7a324c43595b4f7497c819fb",
+    "semantic_hash": ""
+  },
+  "app/icons/favicon.svg": {
+    "mtime": 1793397386.637211,
+    "seen": 1793397387.445388,
+    "ast_hash": "cc63a2d79a5ecd8e14bc0484ee7ed3ce",
+    "semantic_hash": ""
+  },
+  "app/icons/icon-192.png": {
+    "mtime": 1793397386.6372378,
+    "seen": 1793397387.44539,
+    "ast_hash": "1a30b6f859a7cf4bd7db2bea05296faf",
+    "semantic_hash": ""
+  },
+  "app/icons/icon-512.png": {
+    "mtime": 1793397386.6372685,
+    "seen": 1793397387.4453921,
+    "ast_hash": "e397227e05fe647924e1c3a9ce9a600d",
+    "semantic_hash": ""
+  },
+  "app/icons/icon-maskable-192.png": {
+    "mtime": 1793397386.6374345,
+    "seen": 1793397387.4453943,
+    "ast_hash": "23c4c38ba07e958cd4c7d14b02b3e111",
+    "semantic_hash": ""
+  },
+  "app/icons/icon-maskable-512.png": {
+    "mtime": 1793397386.6374624,
+    "seen": 1793397387.445396,
+    "ast_hash": "3c2fe11e15a90be6069669e92ec562f7",
+    "semantic_hash": ""
+  }
+}
