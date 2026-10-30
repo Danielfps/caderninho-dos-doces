@@ -70,6 +70,7 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
 ## Planilha
 
 `planilha/caderninho-planilha.xlsx`: custos, preços (valor da hora, preço sugerido, margem) e fiado.
+Mesmo visual e textos neutros do app (azul, cinzas, Inter; vermelho só dívida/prejuízo, verde só pagamento).
 É gerada por `planilha/gerar_planilha.py` (openpyxl) — mude o script, não o .xlsx à mão.
 Estrutura, contas e a ligação planejada com os dados do app estão em `docs/planilha.md`.
 

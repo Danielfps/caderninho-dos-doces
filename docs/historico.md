@@ -66,14 +66,16 @@ caderninho passou a servir para todos eles, ajudando a ter um controle muito mel
 - **Mudar o valor que deve:** na página do cliente, para dar de presente, dar desconto ou acertar a conta.
   Fica anotado no histórico ("Desconto de presente" ou "Correção do valor") e dá para desfazer apagando a linha.
 
-## Planilha de custos e preços (30/10/2026)
+## Planilha de custos, preços e fiado (30/10/2026)
 
 - A partir de uma planilha de precificação de bolo de pote (Tábata Romero), foi feita a nossa:
-  `planilha/caderninho-planilha.xlsx`, com as cores do app, servindo para doces, salgados ou qualquer
-  coisa vendida no fiado. Detalhes em `docs/planilha.md`.
-- Além de ingredientes e receitas, ela tem as contas do mês, o salário que a pessoa quer tirar e as horas
-  de trabalho, e com isso calcula o valor da hora, o preço sugerido, a margem e a meta de vendas do mês.
-- Também tem Clientes, Vendas e Recebi, no mesmo formato do app, para depois o app preencher a planilha.
+  `planilha/caderninho-planilha.xlsx`. Detalhes em `docs/planilha.md`.
+- Segue o app de fiado: mesmo visual (azul, cinzas, Inter), textos neutros, observação no cliente,
+  venda com valor digitado, descontos e acertos e nome do negócio. Serve para quem prepara o que vende e
+  para quem compra pronto para revender.
+- Além de materiais e receitas, tem as contas do mês, o salário que a pessoa quer tirar e as horas de
+  trabalho, e com isso calcula o valor da hora, o preço sugerido, a margem e a meta de vendas do mês.
+- Também tem Clientes, Vendas, Recebi e Acertos, no mesmo formato do app, para depois o app preencher a planilha.
 
 ## Falta fazer
 
