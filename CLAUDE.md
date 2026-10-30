@@ -46,7 +46,7 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
   ao abrir e ao recuperar uma cópia; no código, sempre tratar `c.obs` como possivelmente vazio.
 - "Digitar um valor" vira um item com `produtoId:null`, `qtd:1` e `custo:0`.
 - "Em aberto desde" (`desde()`) é calculado: os pagamentos quitam primeiro as compras mais antigas.
-- `ajuste` (31/10/2026) vem de "Mudar o valor que deve" (presente, desconto ou acerto). Entra no saldo com o
+- `ajuste` (30/10/2026) vem de "Mudar o valor que deve" (presente, desconto ou acerto). Entra no saldo com o
   próprio sinal e no "Vendi" do Resumo (não é dinheiro recebido). Sempre testar `tipo` pelo nome:
   nem tudo que não é `venda` é pagamento.
 - Tocar numa venda ou num pagamento do histórico abre a correção (`formEditVenda` / `formEditPag`).

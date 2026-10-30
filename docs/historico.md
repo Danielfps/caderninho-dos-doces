@@ -57,7 +57,7 @@ caderninho passou a servir para todos eles, ajudando a ter um controle muito mel
 - Os dados continuam no mesmo lugar e no mesmo formato (só ganharam campos opcionais): quem já usava não perde nada,
   e cópias de segurança antigas continuam sendo recuperadas.
 
-## Busca e correções (31/10/2026)
+## Busca e correções (30/10/2026)
 
 - A busca de clientes aparece em "Anotar venda" e em "Clientes" assim que existe o primeiro cliente
   (antes só a partir de 7 e de 5).
