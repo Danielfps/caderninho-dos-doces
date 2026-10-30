@@ -1,7 +1,7 @@
 # Graph Report - caderninho-dos-doces  (2026-10-30)
 
 ## Corpus Check
-- 7 files · ~6,523 words
+- 8 files · ~6,650 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 2 file(s) not represented in the graph (top: (none) 1, .webmanifest 1)
 
