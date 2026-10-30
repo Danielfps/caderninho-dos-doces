@@ -35,6 +35,28 @@ em vez de depender da página do Claude.
 - Testado num celular emulado: cadastrar doce, anotar venda, pagamento parcial, resumo,
   cópia de segurança e abrir sem internet.
 
+## Renovação: de doces para qualquer fiado (30/10/2026)
+
+O app deixou de ser só para quem vende bolo de pote. Muita gente depende de fiado — cantinas de escola
+(onde se anota o nome de cada aluno), cantinas de empresa, quem vende doces e salgados, lojinhas — e o
+caderninho passou a servir para todos eles, ajudando a ter um controle muito melhor do que está para receber.
+
+- **Nome e cara novos:** "Caderninho — controle de fiado". Saiu o rosa e o cupcake; entrou um visual de
+  organizador profissional e minimalista (azul, cinzas, fonte Inter, cartões com borda fina), com tema escuro.
+  Ícone novo: caderno com um "pago".
+- **Textos neutros:** "produto" em vez de "doce", "Boas-vindas", mensagem de cobrança que serve para qualquer
+  negócio e para qualquer pessoa que use.
+- **Nome do negócio** (engrenagem → Ajustes): aparece no topo e assina a mensagem de cobrança no WhatsApp.
+- **Digitar um valor:** dá para anotar uma venda sem ter produtos cadastrados ("Lanche — R$ 7,50"),
+  como no caderno de papel.
+- **Observação no cliente** (turma, setor, responsável) — aparece nas listas e entra na busca.
+- **Feito para muita gente e muitos produtos:** produtos em lista com busca; ao escolher a pessoa, com muitos
+  clientes aparecem só os que compraram por último e a busca acha o resto; buscas ignoram acento.
+- **Desde quando deve:** cada pessoa devendo mostra "desde 12/10", e a ficha mostra "em aberto há 18 dias".
+- **Total sempre à vista** na hora de anotar a venda, com o botão Salvar.
+- Os dados continuam no mesmo lugar e no mesmo formato (só ganharam campos opcionais): quem já usava não perde nada,
+  e cópias de segurança antigas continuam sendo recuperadas.
+
 ## Falta fazer
 
 - [x] Deixar o repositório público e ligar o GitHub Pages (29/10/2026).

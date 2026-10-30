@@ -1,18 +1,26 @@
-# 🧁 Caderninho dos Doces
+# Caderninho — controle de fiado
 
-Aplicativo de celular para anotar **quem pegou doce e quem já pagou**. As contas o caderninho faz sozinho:
-quanto falta receber, quanto vendeu no mês, quanto já recebeu e o lucro.
+Aplicativo de celular para quem vende **fiado** — cantina de escola ou de empresa, quem vende doces e salgados,
+lojinha, bar, vendedor de porta em porta — anotar **quem comprou, quanto deve e quem já pagou**.
+As contas o Caderninho faz sozinho: quanto falta receber, há quanto tempo cada um está devendo,
+quanto vendeu no mês, quanto já recebeu e o lucro.
+
+> Começou como **Caderninho dos Doces**, só para quem vende bolo de pote. Em 30/10/2026 virou um caderninho
+> de fiado para qualquer negócio, com visual novo (veja `docs/historico.md`). As contas antigas continuam valendo.
 
 **Endereço do app:** https://danielfps.github.io/caderninho-dos-doces/
 (já publicado; o passo "Ligar a publicação" abaixo já foi feito)
 
 ## O que ele faz
 
-- **Produtos** — cadastra cada doce com foto, preço e quanto custa para fazer.
-- **Anotar venda** — escolhe a pessoa, toca nos doces que ela pegou e salva. Dá para marcar "já pagou na hora".
-- **Clientes** — mostra quem está devendo e quanto; registra pagamento (Pix, dinheiro, cartão, tudo ou só uma parte).
-- **Cobrar no WhatsApp** — abre o WhatsApp com a mensagem de cobrança já escrita.
-- **Resumo** — falta receber, vendi, já recebi e meu lucro (no mês ou desde o começo).
+- **Anotar venda** — escolhe a pessoa, toca no que ela levou (com busca, para quem tem muitos produtos) ou
+  **digita só o valor**, sem precisar cadastrar nada. Dá para marcar "já pagou na hora".
+- **Produtos** (opcional) — cadastra o que vende com preço, quanto custa e, se quiser, foto.
+- **Clientes** — com observação (turma, setor, responsável…) para não confundir dois "Pedro". Mostra quem está
+  devendo, quanto e desde quando; anota pagamento (Pix, dinheiro, cartão, tudo ou só uma parte).
+- **Cobrar no WhatsApp** — abre o WhatsApp com a mensagem de cobrança já escrita, assinada com o nome do negócio.
+- **Resumo** — falta receber, vendi, recebi e meu lucro (no mês ou desde o começo) e quem está devendo.
+- **Ajustes** (engrenagem ⚙️) — nome do negócio, que aparece no topo e na cobrança.
 - **Cópia de segurança** — salva em arquivo ou copia o texto para guardar numa conversa do WhatsApp.
 - **Funciona sem internet** depois da primeira vez que abre.
 
@@ -39,7 +47,7 @@ Se não aparecer: toque nos três pontinhos (⋮) → **Instalar app** (ou **Adi
 **iPhone (Safari):** abra o endereço do app no **Safari** → toque no botão de compartilhar
 (quadradinho com a setinha para cima) → **Adicionar à Tela de Início**.
 
-Pronto: aparece o ícone do cupcake na tela, e o app abre em tela cheia, como qualquer outro aplicativo.
+Pronto: aparece o ícone do caderninho azul na tela, e o app abre em tela cheia, como qualquer outro aplicativo.
 
 ### Já usava a versão de teste (no Claude)?
 
