@@ -359,7 +359,7 @@ function listaClientesHTML(){
 function vClientes(){
   return `<h1>Clientes</h1>
   <button class="btn" data-act="novoCli">${IC.plus}Novo cliente</button>
-  ${S.clientes.length>4?`<input class="input" id="buscaCli" type="search" placeholder="Procurar pelo nome ou observação" value="${esc(ui.busca)}" autocomplete="off">`:''}
+  ${S.clientes.length?`<input class="input" id="buscaCli" type="search" placeholder="Procurar pelo nome ou observação" value="${esc(ui.busca)}" autocomplete="off">`:''}
   <div id="listaCli">${listaClientesHTML()}</div>`;
 }
 
@@ -419,7 +419,7 @@ function vVender(){
   let quem;
   if(c){const s=saldo(c.id);
     quem=`<div class="card who">${avatar(c.nome)}<span class="grow"><span class="name">${esc(c.nome)}</span><span class="sub">${subCli(c,s.deve>0?`já deve <b class="c-bad num">${brl(s.deve)}</b>`:'em dia')}</span></span><button class="btn ghost sm" data-act="trocarCli">Trocar</button></div>`}
-  else quem=`${S.clientes.length>6?`<input class="input" id="buscaVenda" type="search" placeholder="Procurar pelo nome" value="${esc(v.buscaCli)}" autocomplete="off">`:''}<div class="chips" id="chipsCli">${chipsCliHTML()}</div>`;
+  else quem=`${S.clientes.length?`<input class="input" id="buscaVenda" type="search" placeholder="Procurar pelo nome ou observação" value="${esc(v.buscaCli)}" autocomplete="off">`:''}<div class="chips" id="chipsCli">${chipsCliHTML()}</div>`;
   const dica=!c?'Escolha quem comprou.':!n?'Escolha o que a pessoa levou.':'';
   return `<h1>Anotar venda</h1>
   <h2>1. Quem comprou?</h2>${quem}
