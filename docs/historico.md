@@ -57,6 +57,15 @@ caderninho passou a servir para todos eles, ajudando a ter um controle muito mel
 - Os dados continuam no mesmo lugar e no mesmo formato (só ganharam campos opcionais): quem já usava não perde nada,
   e cópias de segurança antigas continuam sendo recuperadas.
 
+## Busca e correções (31/10/2026)
+
+- A busca de clientes aparece em "Anotar venda" e em "Clientes" assim que existe o primeiro cliente
+  (antes só a partir de 7 e de 5).
+- **Corrigir venda e pagamento:** tocar numa linha do histórico abre para corrigir quantidades, valor digitado,
+  valor do pagamento, forma e dia (antes só dava para apagar).
+- **Mudar o valor que deve:** na página do cliente, para dar de presente, dar desconto ou acertar a conta.
+  Fica anotado no histórico ("Desconto de presente" ou "Correção do valor") e dá para desfazer apagando a linha.
+
 ## Falta fazer
 
 - [x] Deixar o repositório público e ligar o GitHub Pages (29/10/2026).

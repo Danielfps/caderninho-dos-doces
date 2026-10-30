@@ -265,17 +265,19 @@ async function salvar(){
 }
 
 /* ---------- contas ---------- */
-function saldo(id){let v=0,p=0;for(const l of S.lanc){if(l.clienteId!==id)continue;if(l.tipo==='venda')v+=l.valor;else p+=l.valor}return{vendido:r2(v),pago:r2(p),deve:r2(v-p)}}
+/* "ajuste" (presente/desconto ou correção) entra com o próprio sinal: negativo diminui a dívida, positivo aumenta */
+function saldo(id){let v=0,p=0,a=0;for(const l of S.lanc){if(l.clienteId!==id)continue;if(l.tipo==='venda')v+=l.valor;else if(l.tipo==='ajuste')a+=l.valor;else p+=l.valor}return{vendido:r2(v),pago:r2(p),ajuste:r2(a),deve:r2(v+a-p)}}
+const abate=l=>l.tipo==='pag'||(l.tipo==='ajuste'&&l.valor<0);
 /* dia da compra mais antiga que ainda não foi paga (os pagamentos quitam primeiro as compras mais antigas) */
 function desde(id){
   const ls=S.lanc.filter(l=>l.clienteId===id).sort((a,b)=>(a.data+a.criado).localeCompare(b.data+b.criado));
-  let pago=0;for(const l of ls)if(l.tipo!=='venda')pago+=l.valor;
-  let soma=0;for(const l of ls){if(l.tipo!=='venda')continue;soma+=l.valor;if(soma-pago>0.004)return l.data}
+  let pago=0;for(const l of ls)if(abate(l))pago+=Math.abs(l.valor);
+  let soma=0;for(const l of ls){if(abate(l))continue;soma+=l.valor;if(soma-pago>0.004)return l.data}
   return null;
 }
 function resumo(mes){
   let vend=0,rec=0,custo=0,avulso=false;
-  for(const l of S.lanc){if(mes&&!String(l.data).startsWith(mes))continue;if(l.tipo==='venda'){vend+=l.valor;custo+=l.custo||0;if(l.itens.some(i=>!i.produtoId))avulso=true}else rec+=l.valor}
+  for(const l of S.lanc){if(mes&&!String(l.data).startsWith(mes))continue;if(l.tipo==='venda'){vend+=l.valor;custo+=l.custo||0;if(l.itens.some(i=>!i.produtoId))avulso=true}else if(l.tipo==='ajuste')vend+=l.valor;else rec+=l.valor}
   let falta=0,devendo=0;for(const c of S.clientes){const d=saldo(c.id).deve;if(d>0){falta+=d;devendo++}}
   return{vend:r2(vend),rec:r2(rec),lucro:r2(vend-custo),falta:r2(falta),devendo,avulso};
 }
@@ -377,16 +379,17 @@ function vCliente(){
     <div class="lbl">${s.deve>0?'Está devendo':s.deve<0?'Pagou a mais (crédito)':'Está em dia'}</div>
     <div class="big num ${s.deve>0?'c-bad':'c-good'}">${brl(Math.abs(s.deve))}</div>
     ${d0?`<div class="small" style="margin-top:2px">Em aberto desde ${fmtData(d0)} (${haQuanto(d0)})</div>`:''}
-    <div class="muted small num">Comprou ${brl(s.vendido)} no total · pagou ${brl(s.pago)}</div>
+    <div class="muted small num">Comprou ${brl(s.vendido)} no total · pagou ${brl(s.pago)}${s.ajuste<0?` · desconto ${brl(-s.ajuste)}`:s.ajuste>0?` · acréscimo ${brl(s.ajuste)}`:''}</div>
   </section>
   <div class="row"><button class="btn" data-act="venderPara" data-id="${c.id}">${IC.plus}Anotar venda</button><button class="btn good" data-act="pagar" ${s.deve>0?'':'disabled'}>${IC.money}Recebi</button></div>
   ${s.deve>0?`<a class="btn soft" href="${esc(zap)}" target="_blank" rel="noopener">${IC.zap}Cobrar no WhatsApp</a>`:''}
+  ${hist.length?`<button class="btn ghost" data-act="ajustar">${IC.pen}Mudar o valor que deve</button>`:''}
   <h2>Histórico</h2>
-  ${hist.length?`<div class="list">${hist.map(l=>{
-    const venda=l.tipo==='venda';
-    const tit=venda?itensTxt(l):'Pagamento';
-    const tipo=venda?'Compra':l.forma==='Na hora'?'Pago na hora':l.forma?esc(l.forma):'Pagamento';
-    return `<button class="item" data-act="verLanc" data-id="${l.id}"><span class="grow"><span class="name">${tit}</span><span class="sub">${tipo} · ${fmtData(l.data)}</span></span><span class="val ${venda?'c-bad':'c-good'}">${venda?'':'+ '}${brl(l.valor)}</span></button>`}).join('')}</div>`
+  ${hist.length?`<p class="muted small" style="margin:-8px 0 0">Toque numa linha para corrigir ou apagar.</p><div class="list">${hist.map(l=>{
+    const venda=l.tipo==='venda',aj=l.tipo==='ajuste',menos=aj?l.valor<0:!venda;
+    const tit=venda?itensTxt(l):aj?(l.motivo==='presente'?'Desconto de presente':'Correção do valor'):'Pagamento';
+    const tipo=venda?'Compra':aj?(l.valor<0?'Diminuiu o que deve':'Aumentou o que deve'):l.forma==='Na hora'?'Pago na hora':l.forma?esc(l.forma):'Pagamento';
+    return `<button class="item" data-act="verLanc" data-id="${l.id}"><span class="grow"><span class="name">${tit}</span><span class="sub">${tipo} · ${fmtData(l.data)}</span></span><span class="val ${menos?'c-good':'c-bad'}">${l.tipo==='pag'?'+ ':''}${brl(Math.abs(l.valor))}</span></button>`}).join('')}</div>`
     :`<div class="card muted">Nada anotado ainda.</div>`}`;
 }
 
@@ -517,6 +520,50 @@ function registrarPag(valor){
   const rest=saldo(c.id).deve;toast(rest>0?`Pagamento anotado. Ainda falta ${brl(rest)}`:rest<0?`Pagamento anotado. Ficou com ${brl(-rest)} de crédito`:'Pagamento anotado. Está em dia');
 }
 
+/* corrigir uma venda ou um pagamento já anotado (edit é uma cópia; só vale ao salvar) */
+let edit=null;
+const pagNaHora=l=>S.lanc.find(x=>x.tipo==='pag'&&x.forma==='Na hora'&&x.clienteId===l.clienteId&&x.criado===l.criado+'1');
+const totalEdit=()=>r2(edit.itens.reduce((t,i)=>t+i.preco*i.qtd,0));
+function formEditVenda(){
+  abrir(`<h1>Corrigir venda</h1>
+  <div class="list">${edit.itens.map((i,k)=>i.produtoId
+    ?`<div class="item"><span class="grow"><span class="name">${esc(i.nome)}</span><span class="sub num">${brl(i.preco)} cada</span></span><div class="stepper"><button data-act="evMenos" data-v="${k}" aria-label="Tirar um">–</button><output class="num">${i.qtd}</output><button data-act="evMais" data-v="${k}" aria-label="Pôr mais um">+</button></div></div>`
+    :`<div class="item"><label class="grow name" for="evVal${k}">${esc(i.nome)}</label><div class="money" style="width:150px;flex:none"><span>R$</span><input class="input evval" id="evVal${k}" data-v="${k}" inputmode="decimal" value="${i.preco>0?moneyStr(i.preco):''}" placeholder="0,00"></div></div>`).join('')}</div>
+  <p class="muted small" style="margin:-4px 0 0">Para tirar um item, deixe a quantidade em 0 (ou o valor em branco).</p>
+  <div class="field"><label for="evData">Dia</label><input class="input" type="date" id="evData" value="${edit.data}" max="${hoje()}"></div>
+  <div class="row" style="align-items:baseline"><span class="lbl" style="flex:none">Total</span><b class="mid num" id="evTotal" style="text-align:right">${brl(totalEdit())}</b></div>
+  <button class="btn" data-act="salvarEdit">Salvar correção</button>
+  <button class="btn danger" data-act="apagarLanc">Apagar esta venda</button>
+  <button class="btn ghost" data-act="fechar">Cancelar</button>`)}
+function formEditPag(){formaPag=edit.forma||'Pix';
+  const formas=['Pix','Dinheiro','Cartão'];if(!formas.includes(formaPag))formas.push(formaPag);
+  abrir(`<h1>Corrigir pagamento</h1>
+  <div class="field"><label for="epValor">Valor</label><div class="money"><span>R$</span><input class="input" id="epValor" inputmode="decimal" value="${moneyStr(edit.valor)}"></div></div>
+  <div class="field"><label>Como pagou?</label><div class="chips" id="formas">${formas.map(f=>`<button class="chip" data-act="forma" data-v="${esc(f)}" aria-pressed="${f===formaPag}">${esc(f)}</button>`).join('')}</div></div>
+  <div class="field"><label for="epData">Dia</label><input class="input" type="date" id="epData" value="${edit.data}" max="${hoje()}"></div>
+  <button class="btn" data-act="salvarEdit">Salvar correção</button>
+  <button class="btn danger" data-act="apagarLanc">Apagar este pagamento</button>
+  <button class="btn ghost" data-act="fechar">Cancelar</button>`)}
+
+/* mudar direto o valor que a pessoa deve (presente, desconto ou acerto): fica anotado como "ajuste" no histórico */
+let motivoAj='erro';
+function formAjuste(){const c=cli(ui.cliente),s=saldo(c.id);motivoAj='erro';
+  abrir(`<h1>Mudar o que ${esc(c.nome)} deve</h1>
+  <div class="muted">${s.deve<0?'Hoje tem crédito de':'Hoje deve'} <b class="num">${brl(Math.abs(s.deve))}</b></div>
+  <div class="field"><label for="ajNovo">Quanto deve ficar</label><div class="money"><span>R$</span><input class="input" id="ajNovo" inputmode="decimal" value="${moneyStr(Math.max(s.deve,0))}"></div></div>
+  <div class="field"><label>Por quê?</label><div class="chips" id="motivos"><button class="chip" data-act="motivo" data-v="erro" aria-pressed="true">Corrigir um erro</button><button class="chip" data-act="motivo" data-v="presente" aria-pressed="false">Presente ou desconto</button></div></div>
+  <button class="btn" data-act="salvarAjuste">Salvar novo valor</button>
+  ${s.deve>0?`<button class="btn soft" data-act="perdoar">Dar tudo de presente (fica em dia)</button>`:''}
+  <p class="muted small" style="margin:0">A mudança fica anotada no histórico. Para corrigir uma venda ou um pagamento, você também pode tocar nele no histórico.</p>
+  <button class="btn ghost" data-act="fechar">Cancelar</button>`)}
+function registrarAjuste(novo,motivo){
+  const c=cli(ui.cliente),dif=r2(novo-saldo(c.id).deve);
+  if(!dif){toast('Esse já é o valor que a pessoa deve.',true);return}
+  S.lanc.push({id:uid(),tipo:'ajuste',clienteId:c.id,valor:dif,motivo:dif>0?'erro':motivo,data:hoje(),criado:new Date().toISOString()});
+  salvar();fechar();render();
+  const n=saldo(c.id).deve;toast(n>0?`Pronto. Agora deve ${brl(n)}`:'Pronto. Está em dia');
+}
+
 /* ajustes e cópia de segurança */
 function formConfig(){
   abrir(`<h1>Ajustes</h1>
@@ -586,8 +633,34 @@ document.addEventListener('click',async e=>{
     case 'forma': formaPag=b.dataset.v; document.querySelectorAll('#formas .chip').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===formaPag)); break;
     case 'pagouTudo': registrarPag(saldo(ui.cliente).deve); break;
     case 'salvarPag': { const v=parseMoney($('#vPag').value); if(!(v>0)){toast('Escreva quanto a pessoa pagou. Ex.: 10,00',true);$('#vPag').focus();return} registrarPag(v); break;}
-    case 'verLanc': { const l=S.lanc.find(x=>x.id===id),venda=l.tipo==='venda';
-      perguntar(venda?'Apagar esta venda?':'Apagar este pagamento?',`${venda?'Venda':'Pagamento'} de ${brl(l.valor)} do dia ${fmtData(l.data)}. Use só se anotou errado.`,'Sim, apagar',()=>{S.lanc=S.lanc.filter(x=>x.id!==id);salvar();fechar();render();toast(venda?'Venda apagada':'Pagamento apagado')}); break;}
+    case 'verLanc': { const l=S.lanc.find(x=>x.id===id);
+      if(l.tipo==='ajuste'){const pres=l.motivo==='presente';
+        perguntar(pres?'Apagar este desconto?':'Apagar esta correção?',`${pres?'Desconto':'Correção'} de ${brl(Math.abs(l.valor))} do dia ${fmtData(l.data)}. O valor que a pessoa deve volta a ser como antes.`,'Sim, apagar',()=>{S.lanc=S.lanc.filter(x=>x.id!==id);salvar();fechar();render();toast(pres?'Desconto apagado':'Correção apagada')});break}
+      edit={id:l.id,itens:(l.itens||[]).map(i=>Object.assign({},i)),valor:l.valor,forma:l.forma,data:l.data};
+      if(l.tipo==='venda')formEditVenda();else formEditPag(); break;}
+    case 'evMais': edit.itens[b.dataset.v].qtd++; formEditVenda(); break;
+    case 'evMenos': { const i=edit.itens[b.dataset.v]; if(i.qtd>0)i.qtd--; formEditVenda(); break;}
+    case 'salvarEdit': { const l=S.lanc.find(x=>x.id===edit.id);if(!l){fechar();return}
+      if(l.tipo==='venda'){
+        const itens=edit.itens.filter(i=>i.qtd>0&&i.preco>0);
+        if(!itens.length){toast('A venda ficou vazia. Para tirar, toque em “Apagar esta venda”.',true);return}
+        const p=pagNaHora(l);
+        l.itens=itens;l.valor=r2(itens.reduce((t,i)=>t+i.preco*i.qtd,0));l.custo=r2(itens.reduce((t,i)=>t+(i.custo||0)*i.qtd,0));l.data=edit.data||l.data;
+        if(p){p.valor=l.valor;p.data=l.data}
+      }else{
+        const v=parseMoney($('#epValor').value);
+        if(!(v>0)){toast('Escreva o valor do pagamento. Ex.: 10,00',true);$('#epValor').focus();return}
+        l.valor=v;l.forma=formaPag;l.data=$('#epData').value||l.data;
+      }
+      salvar();fechar();render();toast(l.tipo==='venda'?'Venda corrigida':'Pagamento corrigido');break;}
+    case 'apagarLanc': { const l=S.lanc.find(x=>x.id===edit.id),venda=l.tipo==='venda',p=venda&&pagNaHora(l);
+      perguntar(venda?'Apagar esta venda?':'Apagar este pagamento?',`${venda?'Venda':'Pagamento'} de ${brl(l.valor)} do dia ${fmtData(l.data)}. Use só se anotou errado.${p?' O pagamento na hora dessa venda também sai.':''}`,'Sim, apagar',()=>{S.lanc=S.lanc.filter(x=>x!==l&&x!==p);salvar();fechar();render();toast(venda?'Venda apagada':'Pagamento apagado')}); break;}
+    case 'ajustar': formAjuste(); break;
+    case 'motivo': motivoAj=b.dataset.v; document.querySelectorAll('#motivos .chip').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===motivoAj)); break;
+    case 'salvarAjuste': { const v=parseMoney($('#ajNovo').value);
+      if(isNaN(v)||v<0){toast('Escreva quanto a pessoa deve ficar devendo. Ex.: 15,00 (ou 0,00)',true);$('#ajNovo').focus();return}
+      registrarAjuste(v,motivoAj); break;}
+    case 'perdoar': registrarAjuste(0,'presente'); break;
     case 'novoProduto': formProd(null); break;
     case 'editProd': formProd(prod(id)); break;
     case 'toggleAtivo': b.setAttribute('aria-checked',b.getAttribute('aria-checked')!=='true'); break;
@@ -627,6 +700,8 @@ document.addEventListener('input',e=>{
   if(e.target.id==='buscaCli'){ui.busca=e.target.value;$('#listaCli').innerHTML=listaClientesHTML()}
   if(e.target.id==='buscaVenda'){ui.venda.buscaCli=e.target.value;$('#chipsCli').innerHTML=chipsCliHTML()}
   if(e.target.id==='buscaProd'){ui.venda.buscaProd=e.target.value;$('#listaProd').innerHTML=prodsVendaHTML()}
+  if(e.target.classList.contains('evval')){edit.itens[e.target.dataset.v].preco=parseMoney(e.target.value)||0;$('#evTotal').textContent=brl(totalEdit())}
+  if(e.target.id==='evData')edit.data=e.target.value;
   if(e.target.id==='dataVenda')ui.venda.data=e.target.value;
 });
 document.addEventListener('change',async e=>{

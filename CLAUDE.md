@@ -36,7 +36,8 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
 { produtos: [{id, nome, preco, custo, foto /* dataURL jpeg 480px */, ativo}],
   clientes: [{id, nome, tel, obs /* turma, setor, responsável… (opcional) */}],
   lanc: [ {id, tipo:'venda', clienteId, itens:[{produtoId /* null = valor digitado */, nome, qtd, preco, custo}], valor, custo, data:'AAAA-MM-DD', criado},
-          {id, tipo:'pag',   clienteId, valor, forma /* Pix|Dinheiro|Cartão|Na hora */, data, criado} ],
+          {id, tipo:'pag',   clienteId, valor, forma /* Pix|Dinheiro|Cartão|Na hora */, data, criado},
+          {id, tipo:'ajuste', clienteId, valor /* com sinal: − diminui a dívida, + aumenta */, motivo /* presente|erro */, data, criado} ],
   ajustes: {negocio /* nome do negócio, opcional */},
   ultimoBackup: timestamp|null }
 ```
@@ -45,8 +46,14 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
   ao abrir e ao recuperar uma cópia; no código, sempre tratar `c.obs` como possivelmente vazio.
 - "Digitar um valor" vira um item com `produtoId:null`, `qtd:1` e `custo:0`.
 - "Em aberto desde" (`desde()`) é calculado: os pagamentos quitam primeiro as compras mais antigas.
+- `ajuste` (31/10/2026) vem de "Mudar o valor que deve" (presente, desconto ou acerto). Entra no saldo com o
+  próprio sinal e no "Vendi" do Resumo (não é dinheiro recebido). Sempre testar `tipo` pelo nome:
+  nem tudo que não é `venda` é pagamento.
+- Tocar numa venda ou num pagamento do histórico abre a correção (`formEditVenda` / `formEditPag`).
+  A venda "já pagou na hora" tem um `pag` com `forma:'Na hora'` e `criado` = `criado` da venda + `'1'`
+  (`pagNaHora()`): corrigir ou apagar a venda corrige ou apaga esse pagamento junto.
 
-- O saldo de cada cliente é sempre calculado (vendas − pagamentos); nunca é guardado.
+- O saldo de cada cliente é sempre calculado (vendas + ajustes − pagamentos); nunca é guardado.
 - A venda guarda nome/preço/custo do produto **daquele dia**, para mudar o preço depois não alterar o passado.
 - Cópia de segurança: `{app:'caderninho', versao:1, em, dados:{produtos, clientes, lanc, ajustes}}`
   (`ajustes` só nas cópias novas; ao recuperar uma cópia sem ele, o nome do negócio atual fica).

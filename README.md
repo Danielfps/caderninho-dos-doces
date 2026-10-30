@@ -18,6 +18,8 @@ quanto vendeu no mês, quanto já recebeu e o lucro.
 - **Produtos** (opcional) — cadastra o que vende com preço, quanto custa e, se quiser, foto.
 - **Clientes** — com observação (turma, setor, responsável…) para não confundir dois "Pedro". Mostra quem está
   devendo, quanto e desde quando; anota pagamento (Pix, dinheiro, cartão, tudo ou só uma parte).
+- **Corrigir e dar desconto** — toque numa venda ou pagamento do histórico para corrigir; "Mudar o valor que deve"
+  serve para dar de presente, dar desconto ou acertar a conta.
 - **Cobrar no WhatsApp** — abre o WhatsApp com a mensagem de cobrança já escrita, assinada com o nome do negócio.
 - **Resumo** — falta receber, vendi, recebi e meu lucro (no mês ou desde o começo) e quem está devendo.
 - **Ajustes** (engrenagem ⚙️) — nome do negócio, que aparece no topo e na cobrança.
