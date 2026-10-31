@@ -35,6 +35,13 @@ em vez de depender da página do Claude.
 - Testado num celular emulado: cadastrar doce, anotar venda, pagamento parcial, resumo,
   cópia de segurança e abrir sem internet.
 
+## Estrutura profissional e ambiente local (31/10/2026)
+
+- O `index.html` foi dividido em CSS e módulos JavaScript (`core/`, `services/`, `ui/`), sem build e sem
+  dependências. Nada mudou nas telas nem nos dados (conferido por testes automáticos).
+- Servidor local (`npm start`), verificador, testes de unidade e teste no celular emulado, rodando também no GitHub.
+- Documentação: README, ARCHITECTURE, MIGRATION, CONTRIBUTING, CHANGELOG. Detalhes em `MIGRATION.md`.
+
 ## Falta fazer
 
 - [x] Deixar o repositório público e ligar o GitHub Pages (29/10/2026).

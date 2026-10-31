@@ -12,11 +12,16 @@ quem pagou. O histórico de como chegamos aqui está em `docs/historico.md`.
 
 ## Como é feito
 
-- **Sem build e sem dependências.** Tudo está em `app/index.html` (HTML + CSS + JS puro, num único IIFE).
-  Só carrega as fontes Baloo 2 e Nunito Sans do Google Fonts.
-- Telas: `resumo`, `clientes`, `cliente`, `vender`, `produtos`. Cada uma é uma função `vX()` que devolve HTML;
-  `render()` redesenha. Formulários abrem numa "janela de baixo" (`abrir()` / `fechar()`).
-- Todos os cliques passam por um único listener que lê `data-act` / `data-id` / `data-v`.
+- **Sem build e sem dependências no app.** HTML + CSS + JS puro em módulos ES. Só carrega as fontes
+  Baloo 2 e Nunito Sans do Google Fonts. Mapa completo em `ARCHITECTURE.md`; regras em `CONTRIBUTING.md`.
+  - `app/index.html` (esqueleto) · `app/css/estilo.css` · `app/js/main.js` (início) · `app/js/config.js` (configuração central)
+  - `app/js/core/` regras puras (contas, dinheiro, venda, cópia) — sem DOM, testadas no Node
+  - `app/js/services/` navegador (armazenamento, fotos, instalar, diário `log`)
+  - `app/js/ui/` estado (`S`, `ui`), telas, formulários, janelas, ações
+- Telas: `resumo`, `clientes`, `cliente`, `vender`, `produtos`. Cada uma é uma função `vX()` em `ui/telas.js`
+  que devolve HTML; `render()` redesenha. Formulários abrem numa "janela de baixo" (`abrir()` / `fechar()`).
+- Todos os cliques passam por um único listener (`ui/acoes.js`) que lê `data-act` / `data-id` / `data-v`
+  e chama a função de mesmo nome em `ACOES`.
 - Sempre passar texto do usuário por `esc()` antes de pôr no HTML. Dinheiro: `brl()` para mostrar,
   `parseMoney()` para ler o que foi digitado ("12,50"), `r2()` para arredondar centavos.
 - Botões grandes (mín. 48–58px), letra 18px, tema claro e escuro.
@@ -43,12 +48,14 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
 
 - `.github/workflows/pages.yml` publica a pasta `app/` no GitHub Pages a cada push no ramo principal
   (ou manualmente em Actions → "Publicar o app"). Endereço: https://danielfps.github.io/caderninho-dos-doces/
+- O `pages.yml` só publica se `scripts/verificar.mjs` e os testes de unidade passarem.
 - `app/sw.js` guarda os arquivos para funcionar offline e busca a versão nova em segundo plano
   (aparece na próxima abertura). Ao adicionar ou renomear arquivos do app, atualize a lista `ARQUIVOS`
-  e troque `VERSAO` em `app/sw.js`.
+  e troque `VERSAO` em `app/sw.js` (`npm run verificar` acusa se esquecer).
 
 ## Testar
 
-`cd app && python3 -m http.server 8000`. Playwright + Chromium já vêm instalados no ambiente do Claude Code:
-dá para testar o fluxo (cadastrar doce → anotar venda → receber pagamento → conferir Resumo) num celular
-emulado (`devices['Pixel 7']`).
+- `npm start` → http://127.0.0.1:8000 (não abrir o `index.html` direto: módulos não carregam em `file://`).
+- `npm run test:tudo` = `verificar` + `npm test` (unidade, `tests/unit/`) + `npm run test:e2e`
+  (fluxo cadastrar doce → anotar venda → receber → Resumo → cópia → sem internet, num Pixel 7 emulado).
+- No ambiente do Claude Code o Playwright + Chromium já vêm instalados: não rode `npm install`/`playwright install`.
