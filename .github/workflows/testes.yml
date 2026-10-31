@@ -1,0 +1,27 @@
+name: Testes
+
+# Roda as verificações, os testes de unidade e o teste no celular emulado
+# em todo envio e em todo pedido de mudança (pull request).
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run verificar
+      - run: npm test
+      - run: npm run test:e2e

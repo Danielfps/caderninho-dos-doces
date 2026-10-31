@@ -15,8 +15,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publicar:
+  # Conferência rápida antes de publicar (sem instalar nada): se falhar, nada é publicado.
+  conferir:
     if: github.event_name == 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/verificar.mjs
+      - run: node --test "tests/unit/*.test.js"
+
+  publicar:
+    needs: conferir
     runs-on: ubuntu-latest
     environment:
       name: github-pages
