@@ -25,6 +25,9 @@ em `converted/`, a planilha `.xlsx` em texto) e é montado por `scripts/graphify
    mesmo commit (`graphify-out/cache/` fica fora, pelo `.gitignore`), e atualize este `CLAUDE.md` se a mudança
    alterou algo descrito aqui.
 
+No Windows do Daniel, `python3` é só o atalho da Microsoft Store: rode `PYTHONUTF8=1 bash scripts/graphify.sh` com um
+`python3` no PATH que chame o `python` de verdade (e `pip install openpyxl`, senão a planilha some do mapa).
+
 Os ganchos em `.claude/settings.json` fazem parte disso sozinhos: refazem o mapa no começo de cada sessão e depois de
 cada edição feita com Edit/Write, e lembram de consultar o mapa antes de buscas e leituras. Edições feitas pelo
 terminal (sed, python) não disparam o gancho: aí rode o script à mão.
@@ -112,6 +115,29 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
   (`ajustes` só nas cópias novas; ao recuperar uma cópia sem ele, o nome do negócio atual fica).
   Qualquer mudança de formato precisa continuar lendo dados e cópias antigas.
 
+## Conta e assinatura (31/10/2026)
+
+- **A conta é obrigatória.** Sem conta, sem teste grátis válido e sem assinatura, `render()` mostra o "portão"
+  (`vPortao()`, `<section id="portao" data-estado="entrar|codigo|conferindo|assinar">`) no lugar do caderninho e o
+  `<body>` ganha a classe `trancado` (some o rodapé). Os dados do caderninho nunca são apagados por isso.
+- Regra: **3 dias grátis** a partir da criação da conta; depois, **assinatura mensal pelo Mercado Pago** (assinatura
+  sem plano, `/preapproval`). Quem decide é o servidor: `minha_situacao()` devolve `liberado_ate` pelo relógio dele.
+  O app guarda a última resposta em `localStorage['caderninho-acesso']` (com `dif` = relógio do servidor menos o do
+  celular) para abrir sem internet; se o relógio do celular voltar para trás, pede para conferir de novo.
+- Tudo no bloco "minha conta e assinatura" de `app/index.html`. Cliques `conta*`, `assin*` e `teste*` vão para
+  `acaoConta()`. `estadoConta()` diz em que pé está; `verificarAcesso(viaMP)` pergunta ao servidor e só redesenha
+  se o estado mudou (para não apagar uma venda sendo digitada). Aviso no Resumo: `bannerAssinatura()`.
+- Servidor em `supabase/` (Esquadro/Codex): migração com `planos` (preço, leitura pública), `assinaturas` (só leitura
+  da própria linha) e `minha_situacao()`; Edge Functions `assinatura` (`criar` devolve o `init_point` do Mercado Pago,
+  `conferir` busca no Mercado Pago e atualiza) e `mp-webhook` (aviso do Mercado Pago, confere o `x-signature`).
+  Como ligar: `docs/conta.md` e `docs/assinatura.md`. **Preço provisório: R$ 9,90** (tabela `planos`).
+- `CONTA_URL` / `CONTA_CHAVE` (chave **pública**, nunca a `service_role`). **Vazios = MODO DE TESTE**: o objeto
+  `teste` faz o papel do servidor (mesmas regras, contas em `localStorage['caderninho-teste']`), aparece o botão 🧪
+  no alto com o painel (passar 1 dia, fim do teste grátis, passar 1 mês, cancelar, apagar contas de teste) e o
+  pagamento é de mentira. Preencheu os dois, o modo de teste some sozinho.
+- Mudou uma regra de acesso? Mude nos 3 lugares: `minha_situacao()` (SQL), `calcularLiberadoAte()`
+  (`supabase/functions/_shared/assinatura.mjs`) e `teste.situacao()` (app).
+
 ## Publicação
 
 - `.github/workflows/pages.yml` publica a pasta `app/` no GitHub Pages a cada push no ramo principal
@@ -126,6 +152,10 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
 dá para testar o fluxo (cadastrar produto → anotar venda, com produto e valor digitado → receber pagamento →
 conferir Resumo) num celular emulado (`devices['Pixel 7']`).
 
+- **Conta e assinatura:** `node testes/conta.test.mjs` (Playwright + Chromium ficam em `testes/node_modules`; se faltar,
+  `cd testes && npm i @playwright/test && npx playwright install chromium`). Roda o app no modo de teste num Pixel 7:
+  criar conta, teste grátis, fim dos 3 dias, pagamento de teste, renovação, cancelamento, sair e entrar. Tira prints
+  em `testes/prints/`. Tem que dar 0 falha. Servidor: `node --test testes/assinatura.test.mjs`.
 - **Planilha:** `node testes/planilha.test.js` (com o servidor acima rodando; usa LibreOffice e openpyxl, via
   `testes/planilha_xlsx.py`). Traz a planilha original para um app vazio, mexe nos custos pelo app (preço de
   material, perdas, salário, compra pronta, preço sugerido, venda, apagar material, conta nova), baixa, mexe no

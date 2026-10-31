@@ -91,8 +91,21 @@ Ela agora faz parte do app (`app/planilha-modelo.xlsx`):
 - Na lista de produtos da planilha, "Custo" virou "Custo completo" (com o seu tempo), para não confundir com o custo
   do produto no app (só materiais e perdas).
 
+## Conta obrigatória, 3 dias grátis e assinatura (31/10/2026)
+
+- Decisão do Daniel: o Caderninho dos Doces foi só um teste; daqui para a frente tudo é feito no Caderninho de Fiado.
+- A conta (nome, e-mail e senha, com Supabase) veio do Doces e agora é **obrigatória** ao abrir o app.
+- Cada conta usa **3 dias grátis**. Depois aparece a tela "Seu teste grátis acabou" com a **assinatura mensal pelo
+  Mercado Pago** (preço provisório R$ 9,90). As contas da pessoa ficam guardadas no celular e voltam ao assinar.
+- Enquanto o Supabase e o Mercado Pago não forem ligados, o app abre no **modo de teste** (botão 🧪), para testar
+  tudo sem cobrar: passar os dias, acabar o teste grátis, pagar de mentira, cancelar.
+- Feito em equipe: Claude (app e orquestração), Esquadro/Codex (servidor, teste de ponta a ponta e revisão),
+  Pluma/Gemini (guia da conta).
+
 ## Falta fazer
 
 - [x] Deixar o repositório público e ligar o GitHub Pages (29/10/2026).
 - [ ] Abrir o endereço no celular e instalar.
 - [ ] Se já tinha contas na versão de teste, passar para o app novo pela cópia de segurança.
+- [ ] Decidir o preço da assinatura (hoje R$ 9,90 provisório).
+- [ ] Ligar Supabase e Mercado Pago (`docs/conta.md` e `docs/assinatura.md`) e testar com usuários de teste do Mercado Pago.

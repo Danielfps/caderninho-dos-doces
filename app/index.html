@@ -219,6 +219,32 @@ button.card{font:inherit;color:inherit;text-align:left;width:100%}
 .passo{display:flex;gap:12px;align-items:center;border:0;background:transparent;text-align:left;padding:4px 0;min-height:48px;width:100%}
 .passo i{font-style:normal;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:.9rem;flex:none}
 select.input{padding-right:8px}
+
+/* conta, assinatura e modo de teste */
+.top-acoes{display:flex;gap:8px;flex:none}
+.icon-btn.eu{background:var(--bar-ink);color:var(--bar);border-radius:50%}
+.icon-btn .ini{font-weight:700;font-size:.92rem;letter-spacing:.02em;line-height:1}
+#btnTeste{font-size:1.25rem}
+body.trancado .tabs{display:none}
+body.trancado main{padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))}
+.portao{display:flex;flex-direction:column;gap:14px;padding-top:6px}
+.portao>h1,.portao>p{text-align:center;margin:0}
+.portao .selo{width:64px;height:64px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;align-self:center}
+.portao .selo svg{width:34px;height:34px}
+.oferta{text-align:center;background:var(--accent-soft);border-color:transparent}
+.oferta b{display:block;font-size:1.2rem;color:var(--accent)}
+.preco{text-align:center}
+.preco .big{margin-top:2px}
+.banner.aviso-pag{background:var(--warn-soft)}
+.sheet>*{flex-shrink:0}
+.sheet form{display:flex;flex-direction:column;gap:14px}
+.senha{position:relative}
+.senha .input{padding-right:110px}
+.senha button{position:absolute;right:6px;top:50%;transform:translateY(-50%);min-height:44px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--accent);font-weight:600}
+#cCod,#cCod2{text-align:center;letter-spacing:.3em;font-weight:700;font-size:1.5rem}
+.chave{background:var(--surface);border:2px dashed var(--line);border-radius:12px;padding:14px;font-weight:700;font-size:1.05rem;letter-spacing:.06em;text-align:center;overflow-wrap:anywhere;user-select:all}
+details.card summary{font-weight:600;cursor:pointer;min-height:44px;display:flex;align-items:center}
+.qr{display:block;width:220px;max-width:100%;margin:12px auto 0;background:#fff;border-radius:12px;padding:8px}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:360px){.big{font-size:2.1rem}.mid{font-size:1.25rem}.checkout .btn{padding:0 18px}}
 </style>
@@ -228,9 +254,15 @@ select.input{padding-right:8px}
 <header class="top"><div class="top-in">
   <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2.5"/><path d="M8.5 3v18M12 8h4M12 12h4"/></svg></span>
     <span>Caderninho<small id="marca">Controle de fiado</small></span></div>
+  <div class="top-acoes">
+  <button class="icon-btn" id="btnTeste" data-act="testePainel" aria-label="Painel do modo de teste" hidden>🧪</button>
+  <button class="icon-btn" id="btnConta" data-act="conta" aria-label="Minha conta">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+  </button>
   <button class="icon-btn" data-act="config" aria-label="Ajustes e cópia de segurança">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
   </button>
+  </div>
 </div></header>
 
 <main id="app"><div class="card">Abrindo o caderninho…</div></main>
@@ -278,7 +310,9 @@ const IC={
   grade:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>',
   baixar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
   trazer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg>',
-  chev:'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
+  chev:'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  eu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>',
+  livro:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2.5"/><path d="M8.5 3v18M12 8h4M12 12h4"/></svg>'
 };
 
 /* ---------- dados (guardados no próprio celular) ---------- */
@@ -351,7 +385,7 @@ function vResumo(){
   const r=resumo(ui.periodo==='mes'?mes:null);
   const nomeMes=new Date().toLocaleString('pt-BR',{month:'long'});
   if(!S.produtos.length&&!S.clientes.length){
-    return `${bannerInstalar()}<div class="empty"><h1>Boas-vindas!</h1><p class="muted" style="margin:0">Aqui você anota quem comprou fiado, quanto deve e quem já pagou. As contas o Caderninho faz sozinho.</p>
+    return `${bannerAssinatura()}${bannerInstalar()}<div class="empty"><h1>Boas-vindas!</h1><p class="muted" style="margin:0">Aqui você anota quem comprou fiado, quanto deve e quem já pagou. As contas o Caderninho faz sozinho.</p>
       <div class="steps"><div><i>1</i>Quando alguém comprar fiado, toque em “Anotar venda”</div><div><i>2</i>Quando a pessoa pagar, toque em “Recebi”</div><div><i>3</i>Aqui no Resumo você vê quem deve e há quanto tempo</div></div>
       <button class="btn" data-act="ir" data-v="vender">${IC.plus}Anotar a primeira venda</button>
       <button class="btn ghost" data-act="novoProduto">Cadastrar meus produtos</button>
@@ -362,6 +396,7 @@ function vResumo(){
   const semCusto=S.produtos.some(p=>p.ativo&&!(p.custo>0));
   const precisaBackup=S.lanc.length>0&&(!S.ultimoBackup||Date.now()-S.ultimoBackup>7*864e5);
   return `
+  ${bannerAssinatura()}
   ${bannerInstalar()}
   ${precisaBackup?`<div class="banner"><span style="flex:1">Faz tempo que você não guarda uma cópia das suas contas.</span><button data-act="config">Guardar</button></div>`:''}
   <section class="card hero">
@@ -486,6 +521,11 @@ function vProdutos(){
 }
 
 function render(){
+  /* sem conta, sem teste grátis e sem assinatura: mostra o portão no lugar do caderninho (os dados ficam guardados) */
+  const est=estadoConta();
+  document.body.classList.toggle('trancado',est!=='liberado');
+  atualizarPerfil();
+  if(est!=='liberado'){$('#app').innerHTML=vPortao(est);return}
   const v=ui.view;
   const html=v==='resumo'?vResumo():v==='clientes'?vClientes():v==='cliente'?vCliente():v==='vender'?vVender():v==='planilha'?vPlanilha():vProdutos();
   $('#app').innerHTML=html;
@@ -606,7 +646,10 @@ function registrarAjuste(novo,motivo){
 
 /* ajustes e cópia de segurança */
 function formConfig(){
+  const u=usuario(),n=u&&(nomeDe(u)||u.email);
   abrir(`<h1>Ajustes</h1>
+  <div class="list"><button class="item" data-act="conta">${u?avatar(n):`<span class="avatar">${IC.eu}</span>`}<span class="grow"><span class="name">Minha conta</span><span class="sub">${u?esc(u.email)+' · '+esc(situacaoTxt()[0]):'Criar conta ou entrar'}</span></span>${IC.chev}</button></div>
+  ${modoTeste()?'<button class="btn ghost" data-act="testePainel">🧪 Painel do modo de teste</button>':''}
   <div class="field"><label for="aNeg">Nome do seu negócio <span class="opt">(se quiser)</span></label><input class="input" id="aNeg" value="${esc(S.ajustes.negocio)}" placeholder="Ex.: Cantina da Escola" autocomplete="off"></div>
   <p class="muted small" style="margin:-4px 0 0">Aparece no alto da tela e no fim da mensagem de cobrança.</p>
   <button class="btn ghost" data-act="salvarNegocio">Salvar nome</button>
@@ -626,6 +669,585 @@ function restaurar(txt){
   let o;try{o=JSON.parse(txt)}catch(e){toast('Esse texto não é uma cópia do caderninho.',true);return}
   const d=o&&o.dados;if(!d||!Array.isArray(d.produtos)||!Array.isArray(d.clientes)||!Array.isArray(d.lanc)){toast('Esse texto não é uma cópia do caderninho.',true);return}
   perguntar('Trocar pelas contas da cópia?',`A cópia tem ${d.clientes.length} clientes e ${d.produtos.length} produtos. O que está no caderninho agora será substituído.`,'Sim, recuperar',()=>{S.produtos=d.produtos;S.clientes=d.clientes;S.lanc=d.lanc;if(d.ajustes)S.ajustes=d.ajustes;if(d.planilha)S.planilha=d.planilha;completar();S.ultimoBackup=Date.now();salvar();fechar();ui.view='resumo';render();toast('Contas recuperadas')});
+}
+
+/* ---------- minha conta e assinatura ----------
+   Quem abre o app precisa criar a conta (nome, e-mail e senha) ou entrar. Cada conta tem 3 dias grátis e, depois,
+   assinatura mensal pelo Mercado Pago. Quem decide se a pessoa pode usar é o servidor (minha_situacao, com o relógio
+   dele); o app guarda a última resposta (caderninho-acesso) para continuar abrindo sem internet.
+   A conta usa o Supabase Auth só com fetch, sem biblioteca. Como ligar: docs/conta.md e docs/assinatura.md.
+   As vendas, clientes e produtos continuam só no celular: nada disso vai para o servidor.
+   Com CONTA_URL e CONTA_CHAVE vazios, o app abre no MODO DE TESTE: o servidor de mentira (teste, mais abaixo)
+   responde no lugar do Supabase, as contas ficam só neste aparelho e nada é cobrado. */
+const CONTA_URL='';   // ex.: 'https://abcdefghij.supabase.co'
+const CONTA_CHAVE=''; // chave pública do projeto (anon ou publishable): pode ficar no código. NUNCA a service_role.
+const DIAS_GRATIS=3;  // só para os textos: quem conta os dias de verdade é o servidor
+const KEY_CONTA='caderninho-conta',KEY_ACESSO='caderninho-acesso',KEY_PAGANDO='caderninho-pagando',KEY_TESTE='caderninho-teste';
+const modoTeste=()=>!CONTA_URL&&!CONTA_CHAVE;          // os dois vazios: modo de teste
+const configurado=()=>!!(CONTA_URL&&CONTA_CHAVE);      // só um preenchido: nem teste nem servidor (não libera ninguém)
+/* guarda pequena: localStorage e, se o navegador não deixar (ex.: dentro de outra página), só na memória */
+const MEM={};
+const LS={
+  get(k){if(k in MEM)return MEM[k];try{return localStorage.getItem(k)}catch(e){return null}},
+  set(k,v){try{localStorage.setItem(k,v);delete MEM[k]}catch(e){MEM[k]=v}},
+  del(k){delete MEM[k];try{localStorage.removeItem(k)}catch(e){}}
+};
+const lerJSON=k=>{try{return JSON.parse(LS.get(k))||null}catch(e){return null}};
+
+let sessao=null; // {access_token, refresh_token, expires_at, user}
+class ErroConta extends Error{constructor(c){super(c);this.codigo=c}}
+const ERROS={
+  sem_internet:'Sem internet agora. Tente de novo quando conectar.',
+  sessao:'Sua entrada na conta venceu. Entre de novo.',
+  invalid_credentials:'E-mail ou senha não conferem.',
+  email_not_confirmed:'Você ainda não confirmou seu e-mail. Veja sua caixa de entrada.',
+  user_already_exists:'Esse e-mail já tem conta. Toque em “Já tenho conta”.',
+  email_exists:'Esse e-mail já tem conta. Toque em “Já tenho conta”.',
+  weak_password:'Essa senha é fácil de adivinhar. Misture letras e números.',
+  email_address_invalid:'Esse e-mail parece errado. Confira.',
+  validation_failed:'Confira o e-mail e a senha.',
+  over_email_send_rate_limit:'Muitos e-mails em pouco tempo. Espere alguns minutos e tente de novo.',
+  over_request_rate_limit:'Muitas tentativas seguidas. Espere um pouquinho.',
+  mfa_verification_failed:'Código errado ou vencido. Confira no aplicativo e tente de novo.',
+  mfa_challenge_expired:'O código venceu. Digite o que está aparecendo agora.',
+  same_password:'A senha nova é igual à antiga.',
+  reauthentication_needed:'Por segurança, saia da conta e entre de novo antes de trocar a senha.',
+  insufficient_aal:'Digite o código de segurança primeiro.',
+  signup_disabled:'Os cadastros estão fechados no momento.',
+  ja_ativa:'Sua assinatura já está ativa.',
+  mp_falhou:'O Mercado Pago não respondeu agora. Tente de novo daqui a pouco.',
+  config:'O Caderninho ainda não está ligado direito. Fale com quem cuida do app.',
+  mfa_teste:'No modo de teste não dá para ligar a proteção em 2 etapas.'
+};
+const msgErro=e=>ERROS[e&&e.codigo]||'Não deu certo agora. Tente de novo daqui a pouco.';
+const SAIU=['bad_jwt','session_not_found','session_expired','refresh_token_not_found','refresh_token_already_used','user_not_found','sem_login'];
+function codigoErro(j,status){
+  j=j||{};const d=String(j.msg||j.error_description||j.message||'');
+  let c=j.error_code||j.erro||(typeof j.code==='string'?j.code:'')||j.error||'';
+  if(/email not confirmed/i.test(d))c='email_not_confirmed';
+  else if(/invalid login credentials/i.test(d))c='invalid_credentials';
+  else if(/already registered/i.test(d))c='user_already_exists';
+  else if(/password should/i.test(d)&&!ERROS[c])c='weak_password';
+  else if(status===401&&!SAIU.includes(c)&&/jwt/i.test(d+' '+c))c='bad_jwt';
+  if(!ERROS[c]&&!SAIU.includes(c)&&status===429)c='over_request_rate_limit';
+  return c||'erro';
+}
+/* uma chamada ao servidor: Supabase de verdade ou, no modo de teste, o servidor de mentira */
+async function chamar(caminho,{metodo='POST',corpo,token,busca}={}){
+  const url=caminho+(busca?'?'+new URLSearchParams(busca):'');
+  let r;
+  if(modoTeste())r=teste.responder(metodo,url,corpo,token);
+  else if(!configurado())throw new ErroConta('config');
+  else{
+    const h={apikey:CONTA_CHAVE,'Content-Type':'application/json'};if(token)h.Authorization='Bearer '+token;
+    let x;try{x=await fetch(CONTA_URL.replace(/\/+$/,'')+'/'+url,{method:metodo,headers:h,body:corpo?JSON.stringify(corpo):undefined})}
+    catch(e){throw new ErroConta('sem_internet')}
+    let j=null;try{j=await x.json()}catch(e){}
+    r={ok:x.ok,status:x.status,json:j};
+  }
+  if(!r.ok){const c=codigoErro(r.json,r.status);if(SAIU.includes(c)){if(token&&sessao&&sessao.access_token===token)guardarSessao(null);throw new ErroConta('sessao')}throw new ErroConta(c)} // resposta velha de outra conta não derruba a atual
+  return r.json||{};
+}
+const auth=(caminho,op)=>chamar('auth/v1/'+caminho,op);
+const volta=()=>({redirect_to:location.origin+location.pathname}); // para onde o link do e-mail traz de volta
+const jwt=t=>{try{return JSON.parse(atob(String(t).split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch(e){return{}}};
+const meuId=()=>sessao?String(jwt(sessao.access_token).sub||(sessao.user&&sessao.user.id)||''):'';
+function lerSessao(){sessao=lerJSON(KEY_CONTA)}
+function guardarSessao(s){
+  const antes=meuId();
+  sessao=s||null;
+  if(sessao)LS.set(KEY_CONTA,JSON.stringify(sessao));else{LS.del(KEY_CONTA);guardarAcesso(null)}
+  atualizarPerfil();
+  if(antes!==meuId())setTimeout(render); // entrou ou saiu: troca a tela (portão ou caderninho)
+}
+const sessaoDe=(j,user)=>({access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Number(j.expires_at)||Math.floor(Date.now()/1000)+(Number(j.expires_in)||3600),user:j.user||user||null});
+let renovando=null;
+function tokenValido(){
+  if(!sessao)return Promise.reject(new ErroConta('sessao'));
+  if(sessao.expires_at-60>Date.now()/1000)return Promise.resolve(sessao.access_token);
+  /* cada renovação fica presa à sessão que a começou: se a pessoa trocou de conta no meio, não grava nem apaga a nova */
+  const rt=sessao.refresh_token,mesma=()=>!!sessao&&sessao.refresh_token===rt;
+  if(!renovando||renovando.rt!==rt){
+    const p=auth('token',{busca:{grant_type:'refresh_token'},corpo:{refresh_token:rt}})
+      .then(j=>{if(mesma())guardarSessao(sessaoDe(j,sessao.user));return j.access_token})
+      .catch(e=>{if(e.codigo!=='sem_internet'){if(mesma())guardarSessao(null);throw new ErroConta('sessao')}throw e})
+      .finally(()=>{if(renovando===p)renovando=null});
+    p.rt=rt;renovando=p;
+  }
+  return renovando;
+}
+const logado=async(caminho,op)=>chamar(caminho,Object.assign({},op,{token:await tokenValido()}));
+async function atualizarUsuario(){const id=meuId();const u=await logado('auth/v1/user',{metodo:'GET'});if(sessao&&meuId()===id){sessao.user=u;guardarSessao(sessao)}return u} // trocou de conta no meio: não mistura
+/* proteção em 2 etapas: código de 6 números de um aplicativo como o Google Authenticator */
+const fator2=()=>((sessao&&sessao.user&&sessao.user.factors)||[]).find(f=>f.factor_type==='totp'&&f.status==='verified');
+const precisaCodigo=()=>!!(sessao&&fator2()&&jwt(sessao.access_token).aal!=='aal2');
+const usuario=()=>sessao&&sessao.user&&!precisaCodigo()?sessao.user:null;
+const nomeDe=u=>String((u&&u.user_metadata&&u.user_metadata.nome)||'').trim();
+const emailOk=e=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+async function verificarFator(id,code){
+  const c=await logado('auth/v1/factors/'+id+'/challenge',{corpo:{}});
+  const j=await logado('auth/v1/factors/'+id+'/verify',{corpo:{challenge_id:c.id,code}});
+  guardarSessao(sessaoDe(j,sessao&&sessao.user));
+}
+function atualizarPerfil(){
+  const t=$('#btnTeste');if(t)t.hidden=!modoTeste();
+  const b=$('#btnConta');if(!b)return;const u=usuario(),n=u&&(nomeDe(u)||u.email);
+  b.classList.toggle('eu',!!u);b.innerHTML=u?`<span class="ini">${iniciais(n)}</span>`:IC.eu;
+  b.setAttribute('aria-label',u?'Minha conta ('+n+')':'Minha conta');
+}
+
+/* ---------- pode usar? (teste grátis ou assinatura) ----------
+   acesso = última resposta do servidor, com "dif" (relógio do servidor menos o do celular) para contar o tempo sem internet */
+let acesso=null,erroAcesso=null,conferindo=null,conferindoDe='',precoVitrine=0;
+function lerAcesso(){acesso=lerJSON(KEY_ACESSO)}
+function guardarAcesso(a){acesso=a||null;if(acesso)LS.set(KEY_ACESSO,JSON.stringify(acesso));else LS.del(KEY_ACESSO)}
+const meuAcesso=()=>acesso&&acesso.uid&&acesso.uid===meuId()?acesso:null;
+const agoraServ=()=>Date.now()+((acesso&&acesso.dif)||0);
+const ativaAgora=()=>{const a=meuAcesso();return !!(a&&a.assinatura==='ativa'&&a.valido_ate>agoraServ())};
+const precoAtual=()=>(meuAcesso()&&meuAcesso().preco)||precoVitrine;
+/* datas do Postgres vêm com microssegundos (…:00.123456+00:00): corta em milissegundos para todo navegador entender */
+const lerData=s=>s?Date.parse(String(s).replace(/(\.\d{3})\d+/,'$1'))||0:0;
+function situacaoDe(j,uid){
+  const ag=lerData(j.agora);
+  return{uid,liberado_ate:lerData(j.liberado_ate),teste_ate:lerData(j.teste_ate),assinatura:j.assinatura||null,
+    valido_ate:lerData(j.valido_ate)||null,preco:Number(j.preco)||0,dif:ag?ag-Date.now():0,em:Date.now()};
+}
+/* entrar | codigo | conferindo | assinar | liberado */
+function estadoConta(){
+  if(!sessao)return 'entrar';
+  if(precisaCodigo())return 'codigo';
+  const a=meuAcesso();
+  if(!a||Date.now()<a.em-36e5)return 'conferindo'; // ainda sem resposta do servidor, ou o relógio do celular voltou para trás
+  return agoraServ()<a.liberado_ate?'liberado':'assinar';
+}
+/* pergunta ao servidor; viaMP = pedir para ele conferir direto no Mercado Pago (depois de pagar) */
+async function verificarAcesso(viaMP){
+  while(conferindo){const mesma=conferindoDe===meuId();await conferindo;if(mesma&&!viaMP)return estadoConta()} // outra conta: pergunta de novo
+  const antes=estadoConta(),uid=meuId();
+  let fim;conferindo=new Promise(r=>{fim=r});conferindoDe=uid;
+  if(antes==='conferindo')render();
+  try{
+    const j=viaMP?(await logado('functions/v1/assinatura',{corpo:{acao:'conferir'}})).situacao
+                 :await logado('rest/v1/rpc/minha_situacao',{corpo:{}});
+    if(!j||!j.liberado_ate)throw new ErroConta('pedido');
+    if(uid&&meuId()===uid){guardarAcesso(situacaoDe(j,uid));erroAcesso=null} // trocou de conta no meio: descarta a resposta da outra
+  }catch(e){if(meuId()===uid){erroAcesso=e;if(e.codigo==='sessao')toast(msgErro(e),true)}}
+  conferindo=null;fim();
+  const depois=estadoConta();
+  if(depois!==antes||depois!=='liberado')render(); // não redesenha à toa: quem está digitando uma venda não perde nada
+  return depois;
+}
+/* preço para mostrar antes de entrar (a tabela de planos é pública) */
+async function carregarPreco(){
+  if(precoVitrine)return;
+  try{const j=await chamar('rest/v1/planos',{metodo:'GET',busca:{select:'valor',id:'eq.mensal'}});const v=Number(j&&j[0]&&j[0].valor);if(v>0){precoVitrine=v;if(estadoConta()==='entrar')render()}}catch(e){}
+}
+const quando=ms=>new Date(ms).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+const quandoHora=ms=>new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+function faltaTxt(ms){if(ms<=0)return 'acabou';const h=Math.ceil(ms/36e5);if(h<=24)return h===1?'falta 1 hora':`faltam ${h} horas`;const d=Math.ceil(ms/864e5);return d===1?'falta 1 dia':`faltam ${d} dias`}
+function situacaoTxt(){
+  const a=meuAcesso();if(!a)return['Conferindo…','neutra'];
+  const ag=agoraServ();
+  if(a.assinatura==='ativa'&&a.valido_ate)return a.valido_ate>ag?[`Ativa, renova em ${quando(a.valido_ate)}`,'good']:a.liberado_ate>ag?['Pagamento atrasado','warn']:['Venceu','bad'];
+  if(a.valido_ate>ag)return[`${a.assinatura==='pausada'?'Pausada':a.assinatura==='cancelada'?'Cancelada':'Paga'}, vale até ${quando(a.valido_ate)}`,'warn'];
+  if(ag<a.teste_ate)return[`Teste grátis até ${quandoHora(a.teste_ate)}`,'warn'];
+  return['Sem assinatura','bad'];
+}
+/* aviso no alto do Resumo: dias de teste, pagamento atrasado ou assinatura cancelada */
+function bannerAssinatura(){
+  const a=meuAcesso();if(!a)return '';const ag=agoraServ();
+  if(ativaAgora())return '';
+  if(a.assinatura==='ativa'&&a.liberado_ate>ag)return `<div class="banner aviso-pag"><span style="flex:1">Não chegou o pagamento deste mês. Confira o cartão no Mercado Pago para não parar de usar.</span><button data-act="assinConferir">Conferir</button></div>`;
+  if(ag<a.teste_ate)return `<div class="banner" data-gratis><span style="flex:1"><b>Teste grátis:</b> ${faltaTxt(a.teste_ate-ag)}.</span><button data-act="assinar">Assinar</button></div>`;
+  if(a.valido_ate>ag)return `<div class="banner aviso-pag"><span style="flex:1">Sua assinatura ${a.assinatura==='pausada'?'foi pausada e ':a.assinatura==='cancelada'?'foi cancelada e ':''}vale até ${quando(a.valido_ate)}.</span><button data-act="assinar">Assinar de novo</button></div>`;
+  return '';
+}
+/* o "portão": o que aparece no lugar do caderninho quando a pessoa ainda não pode usar */
+function vPortao(est){
+  const sair=`<button class="linkbtn" data-act="contaSair">Sair da conta</button>`;
+  if(est==='entrar'){const p=precoAtual();return `<section class="portao" id="portao" data-estado="entrar">
+    <span class="selo">${IC.livro}</span>
+    <h1>Boas-vindas ao Caderninho</h1>
+    <p class="muted">Anote quem comprou fiado, quanto deve e quem já pagou. As contas o Caderninho faz sozinho.</p>
+    <div class="card oferta"><b>${DIAS_GRATIS} dias grátis</b><span class="muted small">${p?`Depois, ${brl(p)} por mês. `:'Depois, assinatura mensal. '}Cancele quando quiser.</span></div>
+    <button class="btn" data-act="contaCriar">Criar minha conta</button>
+    <button class="btn ghost" data-act="contaEntrar">Já tenho conta: entrar</button>
+    <p class="muted small">Para usar o Caderninho, crie sua conta com seu nome, e-mail e uma senha. Suas vendas, clientes e produtos ficam guardados neste celular.</p>
+  </section>`}
+  if(est==='codigo')return `<section class="portao" id="portao" data-estado="codigo"><span class="selo">${IC.livro}</span><h1>Falta o código de segurança</h1>
+    <p class="muted">Sua conta tem proteção em 2 etapas. Digite o código do aplicativo de códigos para continuar.</p>
+    <button class="btn" data-act="contaCodigoAbrir">Digitar o código</button>${sair}</section>`;
+  if(est==='conferindo'){const e=!conferindo&&erroAcesso;return `<section class="portao" id="portao" data-estado="conferindo"><span class="selo">${IC.livro}</span>${e?`<h1>Não deu para conferir sua conta</h1>
+    <p class="muted">${esc(msgErro(e))}</p>
+    <p class="muted small">Na primeira vez, e de vez em quando, o Caderninho precisa de internet para conferir o teste grátis ou a assinatura. Suas contas continuam guardadas neste celular.</p>
+    <button class="btn" data-act="assinRecarregar">Tentar de novo</button>${sair}`:`<h1>Conferindo sua conta…</h1><p class="muted">Só um instante.</p>`}</section>`}
+  const a=meuAcesso(),p=precoAtual();
+  return `<section class="portao" id="portao" data-estado="assinar">
+    <span class="selo">${IC.livro}</span>
+    <h1>${a&&(a.valido_ate||a.assinatura&&a.assinatura!=='pendente')?'Sua assinatura terminou':'Seu teste grátis acabou'}</h1>
+    <p class="muted">Para continuar usando o Caderninho, faça a assinatura. Suas contas estão guardadas neste celular e voltam assim que a assinatura começar.</p>
+    <div class="card preco"><span class="lbl">Assinatura mensal</span><div class="big num">${p?brl(p):'…'}</div><span class="muted small">por mês. Cancele quando quiser.</span></div>
+    ${a&&a.assinatura==='pendente'?'<p class="aviso neutra">Começou a assinatura e não terminou? É só tocar em “Assinar agora” de novo.</p>':''}
+    <button class="btn" data-act="assinar">Assinar agora</button>
+    <button class="btn soft" data-act="assinConferir">Já paguei, conferir</button>
+    <button class="btn ghost" data-act="config">Guardar uma cópia das minhas contas</button>
+    ${sair}
+  </section>`;
+}
+
+/* telas da conta */
+const campo=(id,rotulo,attrs,dica)=>`<div class="field"><label for="${id}">${rotulo}</label><input class="input" id="${id}" ${attrs}>${dica?`<span class="muted small">${dica}</span>`:''}</div>`;
+const campoSenha=(id,rotulo,ac,dica)=>`<div class="field"><label for="${id}">${rotulo}</label><div class="senha"><input class="input" id="${id}" type="password" autocomplete="${ac}" autocapitalize="off" spellcheck="false"><button type="button" data-act="verSenha" data-v="${id}">Mostrar</button></div>${dica?`<span class="muted small">${dica}</span>`:''}</div>`;
+const campoCodigo=(id,rotulo)=>campo(id,rotulo,'inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" autofocus');
+let emailConta='',depoisCodigo=null,fatorNovo=null;
+function abrirConta(){
+  if(!sessao)return formEntrar();
+  if(precisaCodigo())return formCodigo();
+  telaMinhaConta();
+  atualizarUsuario().then(()=>{if($('#telaConta'))telaMinhaConta()}).catch(e=>{if(e.codigo==='sessao'&&$('#telaConta'))fechar()});
+  verificarAcesso().then(()=>{if($('#telaConta'))telaMinhaConta()});
+}
+function formCriar(){abrir(`<form><h1>Criar minha conta</h1>
+  <p class="muted" style="margin:0">Você usa grátis por ${DIAS_GRATIS} dias. Não pedimos cartão agora.</p>
+  ${campo('cNome','Seu nome','autocomplete="name" placeholder="Ex.: Ana Paula" autofocus')}
+  ${campo('cEmail','Seu e-mail',`type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="voce@gmail.com" value="${esc(emailConta)}"`)}
+  ${campoSenha('cSenha','Crie uma senha','new-password','Pelo menos 8 letras ou números. Não use a mesma senha de outro lugar.')}
+  <button class="btn" data-act="contaSalvarCriar">Criar conta</button>
+  <button type="button" class="btn ghost" data-act="contaEntrar">Já tenho conta</button>
+  <button type="button" class="btn ghost" data-act="fechar">Voltar</button></form>`)}
+function telaConfirmeEmail(email){emailConta=email;abrir(`<h1>Confirme seu e-mail 📬</h1>
+  <p style="margin:0">Mandamos um e-mail para <b style="overflow-wrap:anywhere">${esc(email)}</b>. Abra e toque em <b>“Confirmar meu e-mail”</b>.</p>
+  <p class="muted" style="margin:0">Depois é só voltar aqui e entrar. Não chegou? Olhe na pasta de spam (lixo eletrônico) ou espere um minutinho.</p>
+  <button class="btn" data-act="contaEntrar">Já confirmei, quero entrar</button>
+  <button class="btn soft" data-act="contaReenviar">Mandar o e-mail de novo</button>
+  <button class="btn ghost" data-act="fechar">Fechar</button>`)}
+function formEntrar(){abrir(`<form><h1>Entrar na minha conta</h1>
+  ${campo('eEmail','Seu e-mail',`type="email" inputmode="email" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="voce@gmail.com" value="${esc(emailConta)}" ${emailConta?'':'autofocus'}`)}
+  ${campoSenha('eSenha','Sua senha','current-password')}
+  <button class="btn" data-act="contaSalvarEntrar">Entrar</button>
+  <button type="button" class="btn ghost" data-act="contaEsqueci">Esqueci minha senha</button>
+  <button type="button" class="btn ghost" data-act="contaCriar">Ainda não tenho conta</button>
+  <button type="button" class="btn ghost" data-act="fechar">Voltar</button></form>`)}
+function formEsqueci(){abrir(`<form><h1>Esqueci minha senha</h1>
+  <p class="muted" style="margin:0">Escreva seu e-mail. Vamos mandar um link para você criar uma senha nova.</p>
+  ${campo('rEmail','Seu e-mail',`type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" value="${esc(emailConta)}" autofocus`)}
+  <button class="btn" data-act="contaSalvarEsqueci">Mandar o link</button>
+  <button type="button" class="btn ghost" data-act="contaEntrar">Voltar</button></form>`)}
+function formCodigo(depois){depoisCodigo=depois||null;abrir(`<form><h1>Código de segurança</h1>
+  <p class="muted" style="margin:0">Sua conta tem proteção em 2 etapas. Abra o aplicativo de códigos (como o Google Authenticator) e digite os 6 números do <b>Caderninho</b>.</p>
+  ${campoCodigo('cCod','Código de 6 números')}
+  <button class="btn" data-act="contaCodigo">Confirmar</button>
+  <button type="button" class="btn ghost" data-act="contaSair">Cancelar e sair da conta</button></form>`)}
+function formSenhaNova(doEmail){abrir(`<form><h1>${doEmail?'Crie uma senha nova':'Trocar minha senha'}</h1>
+  ${doEmail?'<p class="muted" style="margin:0">Escolha a senha nova que você vai usar para entrar no Caderninho.</p>':''}
+  <input type="email" autocomplete="username" value="${esc(sessao&&sessao.user&&sessao.user.email)}" hidden>
+  ${campoSenha('nSenha','Senha nova','new-password','Pelo menos 8 letras ou números.')}
+  <button class="btn" data-act="contaSalvarSenha">Salvar senha nova</button>
+  <button type="button" class="btn ghost" data-act="${doEmail?'fechar':'conta'}">${doEmail?'Agora não':'Voltar'}</button></form>`)}
+function formNome(){abrir(`<form><h1>Mudar meu nome</h1>
+  ${campo('mNome','Seu nome',`autocomplete="name" value="${esc(nomeDe(sessao&&sessao.user))}" autofocus`)}
+  <button class="btn" data-act="contaSalvarNome">Salvar</button>
+  <button type="button" class="btn ghost" data-act="conta">Voltar</button></form>`)}
+function telaMinhaConta(){
+  const u=sessao&&sessao.user;if(!u)return formEntrar();
+  const nome=nomeDe(u),conf=!!(u.email_confirmed_at||u.confirmed_at),dois=!!fator2(),[st,cor]=situacaoTxt();
+  abrir(`<h1 id="telaConta">Minha conta</h1>
+  <div class="card" style="display:flex;align-items:center;gap:12px">${avatar(nome||u.email)}<span class="grow"><span class="name">${esc(nome||'Sem nome')}</span><span class="sub">${esc(u.email)}</span></span></div>
+  <div class="list">
+    <div class="item"><span class="grow">Assinatura</span><span class="pill ${cor}">${esc(st)}</span></div>
+    <div class="item"><span class="grow">E-mail</span>${conf?'<span class="pill good">Confirmado</span>':'<span class="pill bad">Falta confirmar</span>'}</div>
+    ${modoTeste()?'':`<div class="item"><span class="grow">Proteção em 2 etapas</span>${dois?'<span class="pill good">Ligada</span>':'<span class="pill neutra">Desligada</span>'}</div>`}
+    ${u.created_at?`<div class="item"><span class="grow">Conta criada em</span><span class="val">${esc(quando(Date.parse(u.created_at)))}</span></div>`:''}
+  </div>
+  ${ativaAgora()?'<button class="btn soft" data-act="assinCancelarComo">Como cancelar a assinatura</button>':'<button class="btn" data-act="assinar">Assinar o Caderninho</button>'}
+  ${conf?'':'<button class="btn" data-act="contaReenviar">Mandar o e-mail de confirmação de novo</button>'}
+  <button class="btn soft" data-act="contaNome">Mudar meu nome</button>
+  <button class="btn soft" data-act="contaSenha">Trocar minha senha</button>
+  ${modoTeste()?'':`<button class="btn soft" data-act="conta2fa">${dois?'Desligar':'Ligar'} a proteção em 2 etapas</button>`}
+  <button class="btn ghost" data-act="contaSair">Sair da conta</button>
+  <p class="muted small" style="margin:0">Suas vendas, clientes e produtos ficam guardados neste celular. Sair da conta não apaga nada.</p>
+  <button class="btn ghost" data-act="fechar">Fechar</button>`)}
+function contaPronto(msg){const d=depoisCodigo;depoisCodigo=null;if(d)return d();fechar();render();if(msg)toast(msg);verificarAcesso()}
+const oi=()=>{const n=nomeDe(sessao&&sessao.user);return `Que bom te ver${n?', '+n.split(' ')[0]:''}!`};
+function tela2fa(){abrir(`<h1>Proteção em 2 etapas</h1>
+  <p class="muted" style="margin:0">Além da senha, o Caderninho vai pedir um código de 6 números quando você entrar na conta. O código aparece num aplicativo grátis, como o <b>Google Authenticator</b> ou o <b>Microsoft Authenticator</b>. Assim, mesmo que alguém descubra sua senha, não consegue entrar.</p>
+  <div class="steps"><div><i>1</i>Instale um desses aplicativos (é grátis)</div><div><i>2</i>Toque em “Começar” e coloque o Caderninho nele</div><div><i>3</i>Digite aqui o código que aparecer</div></div>
+  <button class="btn" data-act="contaLigar2fa">Começar</button>
+  <button class="btn ghost" data-act="conta">Voltar</button>`)}
+function tela2faChave(){
+  const f=fatorNovo,qr=String(f.qr||''),src=qr.startsWith('data:')?qr:qr?'data:image/svg+xml;utf8,'+encodeURIComponent(qr):'';
+  abrir(`<form><h1>Coloque o Caderninho no aplicativo</h1>
+  ${/^otpauth:\/\//.test(f.uri)?`<a class="btn" href="${esc(f.uri)}">Abrir no aplicativo de códigos</a>`:''}
+  <p class="muted" style="margin:0">Se não abrir, entre no aplicativo, toque em <b>“+”</b> e depois em <b>“Inserir chave”</b> (ou “Digitar chave”). Use esta chave:</p>
+  <div class="chave">${esc(String(f.secret||'').replace(/(.{4})/g,'$1 ').trim())}</div>
+  <button type="button" class="btn soft" data-act="contaCopiarChave">Copiar a chave</button>
+  ${src.startsWith('data:image/')?`<details class="card"><summary>Vai usar outro celular? Mostrar o QR code</summary><img class="qr" src="${esc(src)}" alt="QR code para o aplicativo de códigos"></details>`:''}
+  ${campoCodigo('cCod2','Agora digite o código de 6 números que apareceu lá')}
+  <button class="btn" data-act="contaConf2fa">Confirmar e ligar</button>
+  <button type="button" class="btn ghost" data-act="conta">Cancelar</button></form>`)}
+
+/* telas da assinatura */
+const cartaoPreco=p=>`<div class="card preco"><span class="lbl">Assinatura mensal</span><div class="big num">${p?brl(p):'…'}</div><span class="muted small">por mês. Cancele quando quiser.</span></div>`;
+function telaAssinar(){
+  const p=precoAtual(),u=sessao&&sessao.user;
+  abrir(`<form><h1>Assinar o Caderninho</h1>
+  ${cartaoPreco(p)}
+  <p class="muted" style="margin:0">O pagamento é feito no site do <b>Mercado Pago</b>, com segurança. A cobrança se repete todo mês, sozinha, até você cancelar.</p>
+  ${campo('pEmail','E-mail da sua conta do Mercado Pago',`type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" value="${esc(u&&u.email)}"`,'Se no Mercado Pago você usa outro e-mail, troque aqui.')}
+  <button class="btn" data-act="assinIr">Ir para o pagamento</button>
+  <button type="button" class="btn ghost" data-act="fechar">Agora não</button></form>`);
+  if(!p)verificarAcesso().then(()=>{if($('#pEmail')&&precoAtual())telaAssinar()});
+}
+function telaComoCancelar(){abrir(`<h1>Cancelar a assinatura</h1>
+  <p style="margin:0">A assinatura é cobrada pelo <b>Mercado Pago</b>. Para cancelar, abra o aplicativo ou o site do Mercado Pago, entre em <b>Assinaturas</b>, escolha o Caderninho e toque em <b>Cancelar</b>.</p>
+  <p class="muted" style="margin:0">Você continua usando até o fim do mês que já pagou. Suas contas continuam guardadas neste celular.</p>
+  ${modoTeste()?'<button class="btn danger" data-act="testeCancelar">Cancelar agora (modo de teste)</button>':'<a class="btn soft" href="https://www.mercadopago.com.br/subscriptions" target="_blank" rel="noopener">Abrir minhas assinaturas no Mercado Pago</a>'}
+  <button class="btn ghost" data-act="conta">Voltar</button>`)}
+function telaPagTeste(){abrir(`<h1>Pagamento de teste</h1>
+  <p class="muted" style="margin:0">No app de verdade, aqui abre o site do Mercado Pago. No modo de teste nada é cobrado: escolha o que acontece.</p>
+  ${cartaoPreco(precoAtual()||teste.PRECO)}
+  <button class="btn good" data-act="testePagar">${IC.ok}Pagamento aprovado</button>
+  <button class="btn ghost" data-act="fechar">Desistir (não pagar)</button>`)}
+/* voltou do Mercado Pago? O endereço de volta traz ?preapproval_id=…, e o app marca a saída em caderninho-pagando */
+function voltouDoPagamento(){
+  const q=new URLSearchParams(location.search),veio=q.has('preapproval_id');
+  if(veio)try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
+  const marcou=Number(LS.get(KEY_PAGANDO))||0;
+  if(marcou&&Date.now()-marcou>864e5)LS.del(KEY_PAGANDO);
+  return veio||(marcou>0&&Date.now()-marcou<=864e5);
+}
+
+/* ---------- modo de teste: servidor de mentira ----------
+   Só é usado com CONTA_URL/CONTA_CHAVE vazios. Responde as mesmas chamadas do Supabase (conta, minha_situacao, planos)
+   e da função "assinatura", com as mesmas regras do servidor de verdade (supabase/migrations): 3 dias grátis a partir
+   da criação da conta e acesso até o fim do mês pago (+3 dias de tolerância se a assinatura está ativa).
+   Tudo fica em localStorage['caderninho-teste']; o relógio de teste ("adianto") anda pelo painel 🧪. */
+const novoId=()=>{try{return crypto.randomUUID()}catch(e){return 'teste-'+uid()+uid()}};
+const teste={
+  PRECO:9.9,DIA:864e5,
+  dados(){const d=lerJSON(KEY_TESTE)||{};return{contas:Array.isArray(d.contas)?d.contas:[],adianto:Number(d.adianto)||0}},
+  gravar(d){LS.set(KEY_TESTE,JSON.stringify(d))},
+  agora(){return Date.now()+this.dados().adianto},
+  conta(id){return id?this.dados().contas.find(c=>c.id===id)||null:null},
+  mudar(id,fn){const d=this.dados(),c=d.contas.find(x=>x.id===id);if(c){fn(c);this.gravar(d)}return c},
+  hash(s){let h=2166136261;for(const ch of String(s||''))h=Math.imul(h^ch.codePointAt(0),16777619)>>>0;return h.toString(36)}, // só para não guardar a senha de teste em texto puro
+  mes(ms){const x=new Date(ms);x.setMonth(x.getMonth()+1);return x.getTime()},
+  token(c){return 'teste.'+btoa(JSON.stringify({sub:c.id,aal:'aal1'})).replace(/=+$/,'')+'.x'},
+  usuario(c){const iso=new Date(c.criado).toISOString();return{id:c.id,email:c.email,user_metadata:{nome:c.nome},created_at:iso,email_confirmed_at:iso,factors:[]}},
+  sessao(c){return{access_token:this.token(c),refresh_token:'r.'+c.id,expires_in:3600,user:this.usuario(c)}},
+  situacao(id){
+    const c=this.mudar(id,x=>{const a=x.assin;if(a&&a.status==='ativa'&&a.valido_ate)while(a.valido_ate<=this.agora())a.valido_ate=this.mes(a.valido_ate)}); // cobra o mês seguinte sozinho
+    if(!c)return null;
+    const iso=ms=>new Date(ms).toISOString(),a=c.assin,teste_ate=c.criado+DIAS_GRATIS*this.DIA;
+    let lib=teste_ate;
+    if(a&&a.valido_ate){if(a.status==='ativa')lib=Math.max(lib,a.valido_ate+3*this.DIA);else lib=Math.max(lib,a.valido_ate)} // pausada, cancelada ou pendente: vale até o fim do que já foi pago
+    return{agora:iso(this.agora()),teste_ate:iso(teste_ate),assinatura:a?a.status:null,valido_ate:a&&a.valido_ate?iso(a.valido_ate):null,liberado_ate:iso(lib),preco:this.PRECO};
+  },
+  aprovar(id){this.mudar(id,c=>{c.assin={status:'ativa',valido_ate:this.mes(this.agora())}})},
+  cancelar(id){this.mudar(id,c=>{if(c.assin&&c.assin.status==='ativa')c.assin.status='cancelada'})},
+  responder(metodo,url,corpo,token){
+    const ok=json=>({ok:true,status:200,json}),erro=(status,codigo)=>({ok:false,status,json:{error_code:codigo,msg:codigo}});
+    const [caminho,qs]=url.split('?'),q=new URLSearchParams(qs||''),b=corpo||{},d=this.dados();
+    const quem=()=>this.conta(jwt(token).sub);
+    switch(metodo+' '+caminho){
+      case 'POST auth/v1/signup':{
+        const email=String(b.email||'').trim().toLowerCase();
+        if(d.contas.some(c=>c.email===email))return erro(422,'user_already_exists');
+        const c={id:novoId(),email,senha:this.hash(b.password),nome:String((b.data&&b.data.nome)||''),criado:this.agora(),assin:null};
+        d.contas.push(c);this.gravar(d);return ok(this.sessao(c));}
+      case 'POST auth/v1/token':{
+        if(q.get('grant_type')==='password'){const c=d.contas.find(x=>x.email===String(b.email||'').trim().toLowerCase());return c&&c.senha===this.hash(b.password)?ok(this.sessao(c)):erro(400,'invalid_credentials')}
+        const c=this.conta(String(b.refresh_token||'').slice(2));return c?ok(this.sessao(c)):erro(400,'refresh_token_not_found');}
+      case 'GET auth/v1/user':{const c=quem();return c?ok(this.usuario(c)):erro(401,'user_not_found')}
+      case 'PUT auth/v1/user':{const c=quem();if(!c)return erro(401,'user_not_found');
+        this.mudar(c.id,x=>{if(b.password)x.senha=this.hash(b.password);if(b.data&&b.data.nome)x.nome=String(b.data.nome)});
+        return ok(this.usuario(this.conta(c.id)));}
+      case 'POST auth/v1/recover':case 'POST auth/v1/resend':case 'POST auth/v1/logout':return ok({});
+      case 'POST auth/v1/factors':return erro(400,'mfa_teste');
+      case 'GET rest/v1/planos':return ok([{valor:this.PRECO}]);
+      case 'POST rest/v1/rpc/minha_situacao':{const c=quem();return c?ok(this.situacao(c.id)):erro(401,'bad_jwt')}
+      case 'POST functions/v1/assinatura':{
+        const c=quem();if(!c)return{ok:false,status:401,json:{erro:'sem_login'}};
+        if(b.acao==='criar'){
+          if(c.assin&&c.assin.status==='ativa'&&c.assin.valido_ate>this.agora())return{ok:false,status:409,json:{erro:'ja_ativa'}};
+          if(!c.assin)this.mudar(c.id,x=>{x.assin={status:'pendente',valido_ate:null}});
+          return ok({init_point:'#teste-pagamento'});}
+        if(b.acao==='conferir')return ok({situacao:this.situacao(c.id)});
+        return{ok:false,status:400,json:{erro:'pedido'}};}
+    }
+    return erro(404,'erro');
+  }
+};
+function telaTeste(){
+  const d=teste.dados(),c=teste.conta(meuId()),dias=Math.round(d.adianto/teste.DIA*10)/10,[st]=sessao?situacaoTxt():['Sem conta'];
+  abrir(`<h1>🧪 Modo de teste</h1>
+  <p class="muted" style="margin:0">Aqui nada é de verdade: as contas ficam só neste aparelho e nenhum pagamento é cobrado. Use para ver o que acontece com os dias passando.</p>
+  <div class="list">
+    <div class="item"><span class="grow">Agora no relógio de teste</span><span class="val">${esc(quandoHora(teste.agora()))}</span></div>
+    ${d.adianto?`<div class="item"><span class="grow">Adiantado</span><span class="val">${String(dias).replace('.',',')} ${dias===1?'dia':'dias'}</span></div>`:''}
+    <div class="item"><span class="grow">Conta</span><span class="sub">${c?esc(c.email):'nenhuma'}</span></div>
+    <div class="item"><span class="grow">Situação</span><span class="pill neutra">${esc(st)}</span></div>
+    <div class="item"><span class="grow">Contas de teste</span><span class="val">${d.contas.length}</span></div>
+  </div>
+  <button class="btn soft" data-act="testeDia">Passar 1 dia</button>
+  <button class="btn soft" data-act="testeFimGratis">Pular para o fim do teste grátis</button>
+  <button class="btn soft" data-act="testeMes">Passar 1 mês</button>
+  ${c&&c.assin&&c.assin.status==='ativa'?'<button class="btn soft" data-act="testeCancelar">Cancelar a assinatura</button>':''}
+  ${d.adianto?'<button class="btn ghost" data-act="testeRelogio">Voltar o relógio para agora</button>':''}
+  <button class="btn danger" data-act="testeZerar">Apagar as contas de teste</button>
+  <p class="muted small" style="margin:0">Apagar as contas de teste não apaga as vendas, clientes e produtos do caderninho.</p>
+  <button class="btn ghost" data-act="fechar">Fechar</button>`)}
+/* depois de mexer no relógio ou na assinatura de teste: fecha o painel e volta ao Resumo (onde fica o aviso dos dias) */
+async function depoisDoTeste(msg){fechar();ui.view='resumo';if(sessao)await verificarAcesso();render();window.scrollTo(0,0);toast(msg)}
+
+/* mostra "trabalhando…" no botão enquanto fala com a internet, e o erro em português se der errado */
+async function comBotao(b,texto,fn){
+  const antes=b.innerHTML;b.disabled=true;b.textContent=texto;
+  try{await fn()}catch(e){toast(msgErro(e),true);if(e.codigo==='sessao'&&!$('#sheet').hidden)fechar()}
+  finally{if(b.isConnected){b.disabled=false;b.innerHTML=antes}}
+}
+const pedirCampo=(sel,msg)=>{toast(msg,true);$(sel).focus()};
+const lerCodigo=sel=>{const c=$(sel).value.replace(/\D/g,'');if(c.length!==6){pedirCampo(sel,'Digite os 6 números do código.');return null}return c};
+async function acaoConta(a,b){
+  switch(a){
+    case 'conta': abrirConta(); break;
+    case 'contaCriar': formCriar(); break;
+    case 'contaEntrar': formEntrar(); break;
+    case 'contaCodigoAbrir': formCodigo(); break;
+    case 'contaEsqueci': { const e=$('#eEmail');if(e&&e.value.trim())emailConta=e.value.trim().toLowerCase(); formEsqueci(); break;}
+    case 'contaNome': formNome(); break;
+    case 'contaSenha': formSenhaNova(false); break;
+    case 'verSenha': { const i=$('#'+b.dataset.v),ver=i.type==='password';i.type=ver?'text':'password';b.textContent=ver?'Esconder':'Mostrar';i.focus(); break;}
+    case 'contaSalvarCriar': {
+      const nome=$('#cNome').value.trim(),email=$('#cEmail').value.trim().toLowerCase(),senha=$('#cSenha').value;
+      if(!nome)return pedirCampo('#cNome','Escreva seu nome.');
+      if(!emailOk(email))return pedirCampo('#cEmail','Confira seu e-mail. Ex.: ana@gmail.com');
+      if(senha.length<8)return pedirCampo('#cSenha','A senha precisa ter pelo menos 8 letras ou números.');
+      emailConta=email;
+      await comBotao(b,'Criando sua conta…',async()=>{
+        const j=await auth('signup',{busca:volta(),corpo:{email,password:senha,data:{nome}}});
+        if(j.access_token){guardarSessao(sessaoDe(j));return contaPronto(`Conta criada! Você tem ${DIAS_GRATIS} dias grátis.`)}
+        const u=j.user||j; // e-mail já cadastrado volta sem "identities"
+        if(Array.isArray(u.identities)&&!u.identities.length)throw new ErroConta('user_already_exists');
+        telaConfirmeEmail(email);
+      });
+      break;}
+    case 'contaSalvarEntrar': {
+      const email=$('#eEmail').value.trim().toLowerCase(),senha=$('#eSenha').value;
+      if(!emailOk(email))return pedirCampo('#eEmail','Confira seu e-mail. Ex.: ana@gmail.com');
+      if(!senha)return pedirCampo('#eSenha','Escreva sua senha.');
+      emailConta=email;
+      await comBotao(b,'Entrando…',async()=>{
+        let j;try{j=await auth('token',{busca:{grant_type:'password'},corpo:{email,password:senha}})}
+        catch(e){if(e.codigo==='email_not_confirmed')telaConfirmeEmail(email);throw e}
+        guardarSessao(sessaoDe(j));
+        if(precisaCodigo())return formCodigo();
+        contaPronto(oi());
+      });
+      break;}
+    case 'contaSalvarEsqueci': {
+      const email=$('#rEmail').value.trim().toLowerCase();
+      if(!emailOk(email))return pedirCampo('#rEmail','Confira seu e-mail. Ex.: ana@gmail.com');
+      emailConta=email;
+      await comBotao(b,'Mandando…',async()=>{
+        await auth('recover',{busca:volta(),corpo:{email}});
+        abrir(`<h1>Olhe seu e-mail 📬</h1><p style="margin:0">Se <b style="overflow-wrap:anywhere">${esc(email)}</b> tiver conta no Caderninho, chega um link para você criar uma senha nova.</p><p class="muted" style="margin:0">Não chegou? Olhe na pasta de spam (lixo eletrônico).</p><button class="btn ghost" data-act="contaEntrar">Voltar para entrar</button><button class="btn ghost" data-act="fechar">Fechar</button>`);
+      });
+      break;}
+    case 'contaReenviar': {
+      const email=(sessao&&sessao.user&&sessao.user.email)||emailConta;if(!email)return formEntrar();
+      await comBotao(b,'Mandando…',async()=>{await auth('resend',{busca:volta(),corpo:{type:'signup',email}});toast('Pronto, mandamos de novo! Olhe também no spam.')});
+      break;}
+    case 'contaCodigo': {
+      const code=lerCodigo('#cCod');if(!code)return;const f=fator2();if(!f)return contaPronto();
+      await comBotao(b,'Conferindo…',async()=>{await verificarFator(f.id,code);contaPronto(oi())});
+      break;}
+    case 'contaSalvarSenha': {
+      const senha=$('#nSenha').value;
+      if(senha.length<8)return pedirCampo('#nSenha','A senha precisa ter pelo menos 8 letras ou números.');
+      await comBotao(b,'Salvando…',async()=>{const u=await logado('auth/v1/user',{metodo:'PUT',corpo:{password:senha}});sessao.user=u;guardarSessao(sessao);telaMinhaConta();toast('Senha nova salva!')});
+      break;}
+    case 'contaSalvarNome': {
+      const nome=$('#mNome').value.trim();if(!nome)return pedirCampo('#mNome','Escreva seu nome.');
+      await comBotao(b,'Salvando…',async()=>{const u=await logado('auth/v1/user',{metodo:'PUT',corpo:{data:{nome}}});sessao.user=u;guardarSessao(sessao);telaMinhaConta();toast('Nome atualizado')});
+      break;}
+    case 'conta2fa': { const f=fator2(); if(!f)return tela2fa();
+      perguntar('Desligar a proteção em 2 etapas?','Depois disso, para entrar na conta vai bastar o e-mail e a senha.','Sim, desligar',async()=>{
+        try{await logado('auth/v1/factors/'+f.id,{metodo:'DELETE'});await atualizarUsuario();telaMinhaConta();toast('Proteção desligada')}
+        catch(e){toast(msgErro(e),true);if(e.codigo==='sessao')fechar()}});
+      break;}
+    case 'contaLigar2fa': await comBotao(b,'Preparando…',async()=>{
+        const u=await atualizarUsuario(); // tira tentativas antigas que não foram até o fim
+        for(const f of u.factors||[])if(f.factor_type==='totp'&&f.status!=='verified')await logado('auth/v1/factors/'+f.id,{metodo:'DELETE'});
+        const j=await logado('auth/v1/factors',{corpo:{factor_type:'totp',friendly_name:'Caderninho',issuer:'Caderninho de Fiado'}});
+        fatorNovo={id:j.id,secret:j.totp&&j.totp.secret,uri:j.totp&&j.totp.uri,qr:j.totp&&j.totp.qr_code};
+        tela2faChave();
+      }); break;
+    case 'contaCopiarChave': try{await navigator.clipboard.writeText(fatorNovo.secret);toast('Chave copiada! Cole no aplicativo de códigos.')}catch(e){toast('Toque e segure na chave para copiar.',true)} break;
+    case 'contaConf2fa': {
+      const code=lerCodigo('#cCod2');if(!code||!fatorNovo)return;
+      await comBotao(b,'Conferindo…',async()=>{await verificarFator(fatorNovo.id,code);fatorNovo=null;await atualizarUsuario();telaMinhaConta();toast('Proteção em 2 etapas ligada!')});
+      break;}
+    case 'contaSair': {
+      const t=sessao&&sessao.access_token;depoisCodigo=null;fechar();guardarSessao(null);render();
+      if(t)auth('logout',{busca:{scope:'local'},token:t}).catch(()=>{});
+      toast('Você saiu da conta. Suas contas continuam neste celular.'); break;}
+    /* assinatura */
+    case 'assinar': if(!sessao)return formEntrar(); if(ativaAgora())return toast(ERROS.ja_ativa); telaAssinar(); break;
+    case 'assinIr': {
+      const email=$('#pEmail').value.trim().toLowerCase();
+      if(!emailOk(email))return pedirCampo('#pEmail','Confira o e-mail. Ex.: ana@gmail.com');
+      await comBotao(b,'Abrindo o pagamento…',async()=>{
+        let j;
+        try{j=await logado('functions/v1/assinatura',{corpo:{acao:'criar',volta:location.origin+location.pathname,email_pagador:email}})}
+        catch(e){if(e.codigo==='ja_ativa'){fechar();await verificarAcesso(true);toast(msgErro(e));return}throw e}
+        const url=String(j.init_point||'');
+        if(modoTeste()&&url==='#teste-pagamento')return telaPagTeste();
+        if(!/^https:\/\/([a-z0-9-]+\.)*mercadopago\.com(\.br)?\//i.test(url))throw new ErroConta('mp_falhou'); // só sai do app para o Mercado Pago
+        LS.set(KEY_PAGANDO,String(Date.now()));
+        location.href=url;
+      });
+      break;}
+    case 'assinConferir': await comBotao(b,'Conferindo…',async()=>{
+        await verificarAcesso(true);if(erroAcesso)throw erroAcesso;
+        if(ativaAgora()){LS.del(KEY_PAGANDO);toast('Assinatura confirmada! Obrigado.')}
+        else toast('Ainda não chegou a confirmação do Mercado Pago. Pode levar alguns minutos.',true);
+      }); break;
+    case 'assinRecarregar': verificarAcesso(); break;
+    case 'assinCancelarComo': telaComoCancelar(); break;
+    /* modo de teste */
+    case 'testePainel': if(modoTeste())telaTeste(); break;
+    case 'testeDia': case 'testeMes': case 'testeFimGratis': case 'testeRelogio': {
+      if(!modoTeste())return;
+      const d=teste.dados();
+      if(a==='testeDia')d.adianto+=teste.DIA;
+      else if(a==='testeMes')d.adianto+=31*teste.DIA;
+      else if(a==='testeRelogio')d.adianto=0;
+      else{const c=teste.conta(meuId());if(!c)return toast('Crie uma conta primeiro.',true);
+        const alvo=c.criado+DIAS_GRATIS*teste.DIA+60e3-Date.now();if(alvo<=d.adianto)return toast('O teste grátis dessa conta já acabou.',true);d.adianto=alvo}
+      teste.gravar(d);await depoisDoTeste(a==='testeRelogio'?'Relógio de volta para agora':'O relógio de teste andou');break;}
+    case 'testeCancelar': if(!modoTeste())return; teste.cancelar(meuId()); await depoisDoTeste('Assinatura de teste cancelada'); break;
+    case 'testePagar': if(!modoTeste())return; teste.aprovar(meuId()); fechar(); await verificarAcesso(true); toast('Assinatura confirmada! Obrigado.'); break;
+    case 'testeZerar': if(!modoTeste())return;
+      perguntar('Apagar as contas de teste?','Todas as contas criadas no modo de teste somem e o relógio volta para agora. As vendas, clientes e produtos do caderninho não são apagados.','Sim, apagar',()=>{LS.del(KEY_TESTE);fechar();guardarSessao(null);render();toast('Contas de teste apagadas')});
+      break;
+  }
+}
+/* quem toca no link do e-mail (confirmar conta ou criar senha nova) volta para cá com a entrada no endereço */
+async function voltouDoEmail(){
+  const h=new URLSearchParams(location.hash.slice(1)),q=new URLSearchParams(location.search);
+  const tok=h.get('access_token'),erro=h.get('error_code')||h.get('error')||q.get('error_code')||q.get('error');
+  if(!tok&&!erro)return false;
+  try{history.replaceState(null,'',location.pathname)}catch(e){}
+  if(modoTeste())return false;
+  if(erro){abrir(`<h1>Esse link não vale mais</h1><p class="muted" style="margin:0">${erro==='otp_expired'?'Ele venceu ou já foi usado.':'Não deu para abrir o link.'} Se você já confirmou seu e-mail, é só entrar. Se não, entre e peça outro.</p><button class="btn" data-act="contaEntrar">Entrar</button><button class="btn ghost" data-act="fechar">Fechar</button>`);return true}
+  const tipo=h.get('type');
+  guardarSessao(sessaoDe({access_token:tok,refresh_token:h.get('refresh_token'),expires_at:h.get('expires_at'),expires_in:h.get('expires_in')}));
+  try{await atualizarUsuario()}catch(e){toast(msgErro(e),true);return true}
+  if(tipo==='recovery'){if(precisaCodigo())formCodigo(()=>formSenhaNova(true));else formSenhaNova(true);return true}
+  if(precisaCodigo()){formCodigo();return true}
+  contaPronto(tipo==='signup'?'E-mail confirmado! Sua conta está pronta.':'Pronto, você entrou na sua conta');
+  return true;
 }
 
 /* ---------- planilha: custos, preços e as contas do mês ----------
@@ -1051,6 +1673,7 @@ function aplicarImportacao(pl){
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
   const a=b.dataset.act,id=b.dataset.id;
+  if(a.startsWith('conta')||a.startsWith('assin')||a.startsWith('teste')||a==='verSenha')return acaoConta(a,b);
   switch(a){
     case 'ir': if(b.dataset.v==='vender'&&ui.view!=='vender'&&!ui.venda.clienteId&&!Object.keys(ui.venda.itens).length&&!ui.venda.avulsos.length)ui.venda=novaVenda(); ir(b.dataset.v); break;
     case 'periodo': ui.periodo=b.dataset.v; render(); break;
@@ -1220,9 +1843,28 @@ document.addEventListener('change',async e=>{
 });
 
 /* ---------- começar ---------- */
+document.addEventListener('submit',e=>e.preventDefault()); // "Ok/Ir" do teclado aperta o botão principal do formulário
 (async()=>{
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
-  await carregar();completar();render();
+  lerSessao();lerAcesso();
+  await carregar();completar();
+  const pagou=voltouDoPagamento();
+  render();
+  await voltouDoEmail();
+  if(sessao&&!precisaCodigo()){
+    atualizarUsuario().catch(()=>{});
+    await verificarAcesso(pagou);
+    if(pagou&&!erroAcesso){
+      if(ativaAgora()){LS.del(KEY_PAGANDO);toast('Assinatura confirmada! Obrigado.')}
+      else toast('Ainda não chegou a confirmação do Mercado Pago. Toque em “Já paguei, conferir” daqui a pouco.',true);
+    }
+  }else if(!sessao)carregarPreco();
+  window.addEventListener('hashchange',()=>{voltouDoEmail()});
+  /* voltou para o app depois de um tempo: confere de novo (no máximo a cada 10 minutos) */
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden||!sessao||precisaCodigo())return;
+    const a=meuAcesso();if(!a||Date.now()-a.em>10*60e3)verificarAcesso(!!LS.get(KEY_PAGANDO));
+  });
 })();
 /* funciona sem internet depois da primeira vez */
 if('serviceWorker' in navigator&&location.protocol!=='file:'){navigator.serviceWorker.register('./sw.js').catch(()=>{})}

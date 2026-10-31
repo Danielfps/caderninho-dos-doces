@@ -1,0 +1,11 @@
+{
+  "name": "caderninho-testes",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "conta": "node conta.test.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}
