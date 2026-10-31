@@ -56,4 +56,10 @@ for f in graph.json graph.html GRAPH_REPORT.md manifest.json; do
       "$TMP/graphify-out/$f" > "$RAIZ/graphify-out/$f"
 done
 rm -rf "$RAIZ/graphify-out/cache" && cp -r "$TMP/graphify-out/cache" "$RAIZ/graphify-out/" 2>/dev/null || true
+# A planilha (.xlsx) vira texto em converted/; o grafo aponta para lá, então ele vem junto.
+rm -rf "$RAIZ/graphify-out/converted"
+if [[ -d "$TMP/graphify-out/converted" ]]; then
+  cp -r "$TMP/graphify-out/converted" "$RAIZ/graphify-out/"
+  sed -i -e "s#$TMP/##g" -e "s#$TMP#.#g" "$RAIZ"/graphify-out/converted/* 2>/dev/null || true
+fi
 echo "graphify: grafo atualizado em graphify-out/ ($(grep -m1 -o '[0-9]* nodes · [0-9]* edges' graphify-out/GRAPH_REPORT.md))"

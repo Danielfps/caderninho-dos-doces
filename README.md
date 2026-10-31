@@ -76,6 +76,7 @@ As contas da versão de teste ficam guardadas lá, não passam sozinhas para o a
 | `docs/historico.md` | Como o projeto começou e onde paramos |
 | `graphify-out/` | Mapa do código (Graphify) que o Claude Code consulta para responder perguntas |
 | `scripts/graphify.sh` | Refaz o mapa do código |
+| `testes/` | Teste da planilha: app e Excel precisam dar as mesmas contas |
 | `.claude/settings.json` | Faz o Claude Code refazer o mapa sozinho a cada mudança |
 
 ## Testar no computador

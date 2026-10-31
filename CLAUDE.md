@@ -4,6 +4,31 @@ App de celular (PWA) para quem vende fiado anotar quem comprou, quanto deve e qu
 Nasceu como "Caderninho dos Doces" (só para quem vende bolo de pote) e em 30/10/2026 virou um caderninho
 de fiado para qualquer negócio. O histórico de como chegamos aqui está em `docs/historico.md`.
 
+## Antes de tudo: consulte o Graphify (mapa do código)
+
+Regra combinada com a dona do projeto: **em qualquer pergunta ou tarefa, consulte o Graphify primeiro** e diga de
+onde veio a resposta (arquivo:linha). O mapa fica em `graphify-out/` (`graph.json`, `GRAPH_REPORT.md`, `graph.html` e,
+em `converted/`, a planilha `.xlsx` em texto) e é montado por `scripts/graphify.sh`.
+
+1. Se não houver `graphify-out/graph.json` ou o comando `graphify`, rode `scripts/graphify.sh` (instala
+   `graphifyy==0.9.97` se faltar e refaz o mapa em ~15 s).
+2. Pergunte ao mapa **antes** de grep ou de abrir arquivos:
+   - `graphify explain "<função ou conceito>"`: o que é, onde está (arquivo:linha) e com quem se liga;
+   - `graphify query "<pergunta>"`: busca pelas palavras; funciona melhor com nomes do código, que estão em
+     português (`registrarPag`, `saldo`, `calcProd`, `trazerPlanilha`…);
+   - `graphify affected "X"` / `graphify path "A" "B"`: o que é afetado ao mexer em X / como duas partes se ligam;
+   - `graphify-out/GRAPH_REPORT.md`: visão geral (funções centrais, grupos).
+3. Só então leia o código, e só as linhas que o mapa apontou.
+   O mapa só tem as funções declaradas com `function`; as curtas escritas com `=>` (`r2`, `r4`, `brl`, `esc`, `norm`,
+   `prod`, `cli`, `PL`…) não aparecem: para elas, procure no código direto.
+4. Depois de qualquer mudança no projeto, antes do commit: rode `scripts/graphify.sh` e inclua `graphify-out/` no
+   mesmo commit (`graphify-out/cache/` fica fora, pelo `.gitignore`), e atualize este `CLAUDE.md` se a mudança
+   alterou algo descrito aqui.
+
+Os ganchos em `.claude/settings.json` fazem parte disso sozinhos: refazem o mapa no começo de cada sessão e depois de
+cada edição feita com Edit/Write, e lembram de consultar o mapa antes de buscas e leituras. Edições feitas pelo
+terminal (sed, python) não disparam o gancho: aí rode o script à mão.
+
 ## Quem usa
 
 - Qualquer pessoa que vende para pagar depois: cantina de escola ou de empresa, quem vende doces e salgados
@@ -25,7 +50,8 @@ de fiado para qualquer negócio. O histórico de como chegamos aqui está em `do
 - Todos os cliques passam por um único listener que lê `data-act` / `data-id` / `data-v`.
 - Buscas usam `norm()` (sem acento e sem maiúscula: "joao" acha "João").
 - Sempre passar texto do usuário por `esc()` antes de pôr no HTML. Dinheiro: `brl()` para mostrar,
-  `parseMoney()` para ler o que foi digitado ("12,50"), `r2()` para arredondar centavos.
+  `parseMoney()` para ler o que foi digitado ("12,50"), `r2()` para arredondar centavos. Custo é estimativa:
+  `p.custo` fica sem arredondar e o custo de cada venda com 4 casas (`r4()`), para bater com a planilha.
 - Botões grandes (mín. 48–58px), letra 18px, tema claro e escuro.
 
 ## Dados (não quebrar!)
@@ -76,8 +102,7 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
   Meu Mês, materiais, receitas, dados dos produtos e clientes vêm da planilha; o que veio do app não é alterado.
 - Mudou o modelo (linhas, colunas, abas)? Confira `baixarPlanilha()` e `trazerPlanilha()`. O Meu Mês é achado pelo
   texto da coluna B (`achar()`), as listas pelas linhas fixas (5 até o fim de cada aba).
-- Testar: baixe pelo app, rode `soffice --headless --calc --convert-to xlsx` no arquivo e leia os valores com
-  openpyxl (`data_only=True`): as contas do LibreOffice precisam bater com a planilha do app.
+- Testar: `node testes/planilha.test.js` (veja "Testar" abaixo).
 
 ## Mais sobre os dados
 
@@ -99,32 +124,10 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
 
 `cd app && python3 -m http.server 8000`. Playwright + Chromium já vêm instalados no ambiente do Claude Code:
 dá para testar o fluxo (cadastrar produto → anotar venda, com produto e valor digitado → receber pagamento →
-conferir Resumo) num celular
-emulado (`devices['Pixel 7']`).
+conferir Resumo) num celular emulado (`devices['Pixel 7']`).
 
-## Graphify (mapa do código) — regras
-
-O projeto tem um mapa do código em `graphify-out/` (`graph.json`, `GRAPH_REPORT.md`, `graph.html`),
-montado por `scripts/graphify.sh`. O script copia o projeto para uma pasta temporária, separa o `<script>`
-de `app/index.html` (o Graphify não lê JS dentro de HTML) mantendo os números de linha, e grava o resultado
-apontando para `app/index.html`. Se `graphify` não estiver instalado, o script instala (`pip install graphifyy==0.9.97`).
-
-Ganchos em `.claude/settings.json` fazem isso sozinhos: o script roda no começo de cada sessão e depois de
-cada edição de arquivo do projeto, e um lembrete aparece antes de buscas/leituras para consultar o grafo.
-
-**Ao responder qualquer pergunta sobre o projeto:**
-1. Se não houver `graphify-out/graph.json` ou o comando `graphify`, rode `scripts/graphify.sh` primeiro.
-2. Consulte o grafo **antes** de grep ou de abrir arquivos:
-   - `graphify explain "<função ou conceito>"` — o que é, onde está (arquivo:linha) e com quem se liga;
-   - `graphify query "<pergunta>"` — busca pelas palavras da pergunta; funciona melhor com nomes do código
-     (`registrarPag`, `saldo`, `render`, `restaurar`…), que estão em português abreviado;
-   - `graphify path "A" "B"` e `graphify affected "X"` — como duas partes se ligam / o que é afetado ao mexer em X;
-   - `graphify-out/GRAPH_REPORT.md` — visão geral (funções centrais, grupos).
-3. Só depois leia o código, e só as linhas que o grafo apontou. Responda dizendo de onde veio (arquivo:linha).
-
-**Depois de qualquer alteração no código** (antes do commit):
-1. Rode `scripts/graphify.sh` para atualizar `graphify-out/` e inclua essa pasta no mesmo commit
-   (`graphify-out/cache/` fica fora, pelo `.gitignore`). Diff grande em `graph.json` é esperado.
-2. Atualize este `CLAUDE.md` sempre que a mudança alterar algo descrito aqui (telas, funções auxiliares,
-   formato dos dados, arquivos, publicação, como testar).
-
+- **Planilha:** `node testes/planilha.test.js` (com o servidor acima rodando; usa LibreOffice e openpyxl, via
+  `testes/planilha_xlsx.py`). Traz a planilha original para um app vazio, mexe nos custos pelo app (preço de
+  material, perdas, salário, compra pronta, preço sugerido, venda, apagar material, conta nova), baixa, mexe no
+  Excel e traz de volta. Em cada etapa compara tudo o que o app mostra com o que o LibreOffice calcula no arquivo.
+  Rode sempre que mexer em contas, na planilha ou no modelo `.xlsx`: tem que dar 0 com problema.

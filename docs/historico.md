@@ -79,6 +79,18 @@ Ela agora faz parte do app (`app/planilha-modelo.xlsx`):
   mexido no Excel ou no Google Planilhas: o que for novo entra no app, sem repetir o que já veio dele.
 - Conferido no LibreOffice: as contas da planilha baixada batem com as do app.
 
+## Graphify e teste da planilha (31/10/2026)
+
+- O Graphify (mapa do código) tinha sido montado numa outra conversa, no ramo `claude/awesome-turing-m4exga`, ainda
+  com o app antigo. Foi trazido para este ramo e o mapa refeito com o app de fiado e a planilha. Regra: toda pergunta
+  ou tarefa começa consultando o mapa (veja o `CLAUDE.md`).
+- Teste da planilha (`testes/planilha.test.js`), 46 conferências: a planilha original trazida para o app, mudanças de
+  custos pelo app e mudanças no Excel dão as mesmas contas no app e no LibreOffice.
+- O teste achou diferenças de centavos (o app arredondava o custo de cada venda e a planilha não). Agora o custo
+  fica com 4 casas e os números batem.
+- Na lista de produtos da planilha, "Custo" virou "Custo completo" (com o seu tempo), para não confundir com o custo
+  do produto no app (só materiais e perdas).
+
 ## Falta fazer
 
 - [x] Deixar o repositório público e ligar o GitHub Pages (29/10/2026).

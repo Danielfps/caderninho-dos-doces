@@ -252,6 +252,8 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brl=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const r2=n=>Math.round((Number(n)||0)*100)/100;
+/* custo é estimativa, não dinheiro que passa de mão: fica com 4 casas para bater com a planilha, que não arredonda */
+const r4=n=>Math.round((Number(n)||0)*1e4)/1e4;
 function parseMoney(s){s=String(s||'').trim().replace(/R\$|\s/g,'');if(!s)return NaN;if(s.includes(',')){s=s.replace(/\./g,'').replace(',','.')}const n=parseFloat(s);return isFinite(n)?r2(n):NaN}
 const moneyStr=n=>(Number(n)||0).toFixed(2).replace('.',',');
 function hoje(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -669,7 +671,7 @@ function calcProd(p){
 }
 const sitCls=s=>s==='Preço bom'?'good':s==='Prejuízo'?'bad':s.startsWith('Falta')?'neutra':'warn';
 /* o custo calculado aqui vai para o produto do app (só quando a planilha sabe calcular) */
-function aplicarPlanilha(){for(const p of S.produtos){const c=calcProd(p);if(c.fonte==='pronto'||c.fonte==='receita')p.custo=Math.round(c.G*10000)/10000}}
+function aplicarPlanilha(){for(const p of S.produtos){const c=calcProd(p);if(c.fonte==='pronto'||c.fonte==='receita')p.custo=c.G}}
 /* Resumo da planilha: mes 'AAAA-MM' ou null para desde o começo */
 function contasMes(mes){
   let vend=0,rec=0,custo=0;
@@ -770,7 +772,7 @@ function pClientes(){
 function pProdutos(){
   const ps=S.produtos.slice().sort((a,b)=>(b.ativo-a.ativo)||porNome(a,b));
   return `<p class="muted small" style="margin:0">Toque num produto para dizer se você prepara ou compra pronto. A planilha calcula o custo, o preço mínimo e o preço sugerido, e o custo vai sozinho para o produto no app.</p>
-  ${ps.length?`<div class="list">${ps.map(p=>{const c=calcProd(p);return `<button class="item" data-act="planProd" data-id="${p.id}"><span class="grow"><span class="name">${esc(p.nome)}${p.ativo?'':' <span class="muted small">(não vendo mais)</span>'}</span><span class="sub num">Custo ${bv(c.I)} · Sugerido ${bv(c.K)} · Cobro ${c.L?brl(c.L):'—'}</span><span class="pill ${sitCls(c.sit)}" style="margin-top:6px">${c.sit}</span></span>${IC.chev}</button>`}).join('')}</div>`:vazio('Ainda não tem produtos.')}
+  ${ps.length?`<div class="list">${ps.map(p=>{const c=calcProd(p);return `<button class="item" data-act="planProd" data-id="${p.id}"><span class="grow"><span class="name">${esc(p.nome)}${p.ativo?'':' <span class="muted small">(não vendo mais)</span>'}</span><span class="sub num">Custo completo ${bv(c.I)} · Sugerido ${bv(c.K)} · Cobro ${c.L?brl(c.L):'—'}</span><span class="pill ${sitCls(c.sit)}" style="margin-top:6px">${c.sit}</span></span>${IC.chev}</button>`}).join('')}</div>`:vazio('Ainda não tem produtos.')}
   <button class="btn ghost" data-act="novoProduto">${IC.plus}Novo produto</button>`;
 }
 function pReceitas(){
@@ -963,7 +965,7 @@ async function baixarPlanilha(){
   // Vendas: uma linha por produto; o custo vai como valor (o daquele dia) e não pela fórmula
   const vendas=[];
   for(const l of S.lanc.filter(l=>l.tipo==='venda').sort(porData)){const naHora=pagNaHora(l)?'Sim':'';
-    l.itens.forEach((i,k)=>vendas.push({B:serial(l.data),C:rot.get(l.clienteId)||'?',D:i.nome,E:i.qtd,F:i.preco,H:r2((i.custo||0)*i.qtd),J:naHora,K:l.id+':'+k}))}
+    l.itens.forEach((i,k)=>vendas.push({B:serial(l.data),C:rot.get(l.clienteId)||'?',D:i.nome,E:i.qtd,F:i.preco,H:r4((i.custo||0)*i.qtd),J:naHora,K:l.id+':'+k}))}
   encher(F.Vendas,['B','C','D','E','F','J','K'],vendas,5,3004);vendas.forEach((o,k)=>F.Vendas.por('H'+(5+k),o.H));
   F.Vendas.por('K4','Código do app (não mexa)');F.Vendas.esconder(11);
   const naHora=new Set(S.lanc.filter(l=>l.tipo==='venda').map(pagNaHora).filter(Boolean));
@@ -1037,7 +1039,7 @@ function aplicarImportacao(pl){
   const txt=x=>String(x??'').trim(),num=x=>typeof x==='number'?x:lerNum(x);let t=Date.now();const criado=()=>new Date(t++).toISOString();
   for(const o of pl.vendas){const p=prodPor.get(norm(o.D)),qtd=num(o.E)>0?num(o.E):1,preco=num(o.F)>0?num(o.F):p?nn(p.preco):0,data=dataDe(o.B),cr=criado();
     const item=p?{produtoId:p.id,nome:p.nome,qtd,preco,custo:nn(p.custo)}:{produtoId:null,nome:(qtd>1?qtd+' ':'')+(txt(o.D)||'Valor avulso'),qtd:1,preco:r2(preco*qtd),custo:0};
-    const l={id:uid(),tipo:'venda',clienteId:idCli(txt(o.C)),itens:[item],valor:r2(item.preco*item.qtd),custo:r2(item.custo*item.qtd),data,criado:cr};S.lanc.push(l);
+    const l={id:uid(),tipo:'venda',clienteId:idCli(txt(o.C)),itens:[item],valor:r2(item.preco*item.qtd),custo:r4(item.custo*item.qtd),data,criado:cr};S.lanc.push(l);
     if(/^s/i.test(txt(o.J)))S.lanc.push({id:uid(),tipo:'pag',clienteId:l.clienteId,valor:l.valor,forma:'Na hora',data,criado:cr+'1'})}
   for(const o of pl.recebi)S.lanc.push({id:uid(),tipo:'pag',clienteId:idCli(txt(o.C)),valor:r2(num(o.D)),forma:txt(o.E)||'Dinheiro',obs:txt(o.F),data:dataDe(o.B),criado:criado()});
   for(const o of pl.acertos)S.lanc.push({id:uid(),tipo:'ajuste',clienteId:idCli(txt(o.C)),valor:r2(num(o.D)),motivo:/corre/i.test(txt(o.E))?'erro':'presente',obs:txt(o.F),data:dataDe(o.B),criado:criado()});
@@ -1083,7 +1085,7 @@ document.addEventListener('click',async e=>{
       for(const x of v.avulsos){itens.push({produtoId:null,nome:x.nome,qtd:1,preco:x.preco,custo:0});total+=x.preco}
       if(!v.clienteId||!itens.length)return;
       const data=$('#dataVenda').value||hoje();const agora=new Date().toISOString();
-      S.lanc.push({id:uid(),tipo:'venda',clienteId:v.clienteId,itens,valor:r2(total),custo:r2(custo),data,criado:agora});
+      S.lanc.push({id:uid(),tipo:'venda',clienteId:v.clienteId,itens,valor:r2(total),custo:r4(custo),data,criado:agora});
       if(v.pagou)S.lanc.push({id:uid(),tipo:'pag',clienteId:v.clienteId,valor:r2(total),forma:'Na hora',data,criado:agora+'1'});
       salvar();ui.cliente=v.clienteId;ui.venda=novaVenda();ir('cliente');toast('Venda anotada');break;}
     case 'pagar': formPagar(); break;
@@ -1102,7 +1104,7 @@ document.addEventListener('click',async e=>{
         const itens=edit.itens.filter(i=>i.qtd>0&&i.preco>0);
         if(!itens.length){toast('A venda ficou vazia. Para tirar, toque em “Apagar esta venda”.',true);return}
         const p=pagNaHora(l);
-        l.itens=itens;l.valor=r2(itens.reduce((t,i)=>t+i.preco*i.qtd,0));l.custo=r2(itens.reduce((t,i)=>t+(i.custo||0)*i.qtd,0));l.data=edit.data||l.data;
+        l.itens=itens;l.valor=r2(itens.reduce((t,i)=>t+i.preco*i.qtd,0));l.custo=r4(itens.reduce((t,i)=>t+(i.custo||0)*i.qtd,0));l.data=edit.data||l.data;
         if(p){p.valor=l.valor;p.data=l.data}
       }else{
         const v=parseMoney($('#epValor').value);
