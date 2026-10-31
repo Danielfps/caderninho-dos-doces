@@ -1,0 +1,25 @@
+# Dependências de desenvolvimento (instaladas com npm install)
+node_modules/
+
+# Configuração local — nunca enviar (copie de .env.example)
+.env
+.env.*
+!.env.example
+
+# Saídas de teste e capturas de tela
+test-results/
+playwright-report/
+*.png.tmp
+/tmp/
+
+# Cópias de segurança das contas (dados pessoais de clientes!)
+caderninho-*.json
+!tests/fixtures/*.json
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea/
