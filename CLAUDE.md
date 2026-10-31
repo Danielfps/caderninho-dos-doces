@@ -13,9 +13,11 @@ quem pagou. O histórico de como chegamos aqui está em `docs/historico.md`.
 ## Como é feito
 
 - **Sem build e sem dependências.** Tudo está em `app/index.html` (HTML + CSS + JS puro, num único IIFE).
-  Só carrega as fontes Baloo 2 e Nunito Sans do Google Fonts.
+  Só carrega as fontes Baloo 2 e Nunito Sans do Google Fonts. A conta fala com o Supabase só com `fetch`.
 - Telas: `resumo`, `clientes`, `cliente`, `vender`, `produtos`. Cada uma é uma função `vX()` que devolve HTML;
   `render()` redesenha. Formulários abrem numa "janela de baixo" (`abrir()` / `fechar()`).
+- No alto, em todas as telas: bonequinho (`data-act="conta"`, "Minha conta") e engrenagem (`config`,
+  "Configurações": conta, cópia de segurança, instalar e "Como usar o caderninho").
 - Todos os cliques passam por um único listener que lê `data-act` / `data-id` / `data-v`.
 - Sempre passar texto do usuário por `esc()` antes de pôr no HTML. Dinheiro: `brl()` para mostrar,
   `parseMoney()` para ler o que foi digitado ("12,50"), `r2()` para arredondar centavos.
@@ -38,6 +40,17 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
 - A venda guarda nome/preço/custo do produto **daquele dia**, para mudar o preço depois não alterar o passado.
 - Cópia de segurança: `{app:'caderninho', versao:1, em, dados:{produtos, clientes, lanc}}`.
   Qualquer mudança de formato precisa continuar lendo dados e cópias antigas.
+
+## Conta (login)
+
+- "Minha conta" usa o **Supabase Auth** (detalhes e passo a passo em `docs/conta.md`): criar conta com nome,
+  e-mail e senha, confirmar o e-mail, entrar, esqueci minha senha, mudar nome/senha e proteção em 2 etapas
+  (código de aplicativo, TOTP). Tudo no bloco "minha conta" de `app/index.html`; cliques `conta*` vão para `acaoConta()`.
+- `CONTA_URL` / `CONTA_CHAVE` (chave **pública**, nunca a `service_role`). Vazios = app funciona igual, conta diz "Em breve".
+- A conta guarda só nome/e-mail/senha. Os dados do caderninho **não** vão para o Supabase.
+  A entrada fica em `localStorage['caderninho-conta']`, separada dos dados.
+- Para testar sem Supabase de verdade: preencha os dois com valores falsos numa cópia e intercepte
+  `https://<falso>.supabase.co/auth/v1/**` com `context.route()` do Playwright.
 
 ## Publicação
 

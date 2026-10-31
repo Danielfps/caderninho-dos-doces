@@ -60,6 +60,9 @@ button{cursor:pointer}
 .brand small{display:block;font-family:var(--f-body);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;opacity:.85;margin-top:3px}
 .icon-btn{width:48px;height:48px;border-radius:14px;border:0;background:rgba(255,255,255,.18);color:inherit;display:grid;place-items:center}
 .icon-btn svg{width:26px;height:26px}
+.top-acoes{display:flex;gap:8px}
+.icon-btn.eu{background:var(--accent-ink);color:var(--accent);border-radius:50%}
+.icon-btn .ini{font-family:var(--f-display);font-weight:800;font-size:1.35rem;line-height:1}
 
 main{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   padding-block:18px calc(118px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:16px}
@@ -99,9 +102,11 @@ h2{font-size:1.3rem;margin-top:6px}
 .item .grow{flex:1;min-width:0}
 .item .name{font-weight:800;font-size:1.05rem;overflow-wrap:anywhere}
 .item .val{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.avatar svg{width:24px;height:24px}
 .avatar{width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--cocoa);display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:1.25rem;flex:none}
 .pill{display:inline-block;font-size:.78rem;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap}
 .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.good{background:var(--good-soft);color:var(--good)}
+.pill.neutro{background:var(--surface-2);color:var(--muted)}
 
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-weight:800}
@@ -162,12 +167,21 @@ textarea.input{padding:12px 14px;min-height:110px;font-size:.85rem}
 .sheet{background:var(--bg);width:100%;max-width:640px;max-height:92%;overflow:auto;border-radius:26px 26px 0 0;
   padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));padding-block:10px calc(22px + env(safe-area-inset-bottom,0px));
   display:flex;flex-direction:column;gap:16px;animation:up .22s ease-out}
+.sheet>*{flex-shrink:0}
 .sheet::before{content:"";width:48px;height:5px;border-radius:9px;background:var(--line);align-self:center}
 @keyframes up{from{transform:translateY(30px);opacity:.6}}
 .fotobox{width:150px;max-width:100%;aspect-ratio:1/1;border-radius:20px;background:var(--accent-soft);overflow:hidden;display:grid;place-items:center;align-self:center}
 .fotobox img{width:100%;height:100%;object-fit:cover}
 .filebtn{position:relative;overflow:hidden}
 .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.sheet form{display:flex;flex-direction:column;gap:16px}
+.senha{position:relative}
+.senha .input{padding-right:110px}
+.senha button{position:absolute;right:6px;top:50%;transform:translateY(-50%);min-height:44px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--accent);font-weight:800}
+#cCod,#cCod2{text-align:center;letter-spacing:.3em;font-family:var(--f-display);font-weight:800;font-size:1.6rem}
+.chave{background:var(--surface);border:2px dashed var(--line);border-radius:14px;padding:14px;font-weight:800;font-size:1.1rem;letter-spacing:.06em;text-align:center;overflow-wrap:anywhere;user-select:all}
+details.card summary{font-weight:800;cursor:pointer;min-height:44px;display:flex;align-items:center}
+.qr{display:block;width:220px;max-width:100%;margin:12px auto 0;background:#fff;border-radius:12px;padding:8px}
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(104px + env(safe-area-inset-bottom,0px));z-index:50;background:var(--cocoa);color:var(--bg);
   padding:14px 20px;border-radius:16px;font-weight:800;box-shadow:var(--shadow);max-width:calc(100% - 32px);text-align:center}
@@ -182,9 +196,14 @@ textarea.input{padding:12px 14px;min-height:110px;font-size:.85rem}
 
 <header class="top"><div class="top-in">
   <div class="brand">Caderninho<small>dos Doces</small></div>
-  <button class="icon-btn" data-act="config" aria-label="Configurações e cópia de segurança">
+  <div class="top-acoes">
+  <button class="icon-btn" id="btnConta" data-act="conta" aria-label="Minha conta">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+  </button>
+  <button class="icon-btn" data-act="config" aria-label="Configurações">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
   </button>
+  </div>
 </div></header>
 
 <main id="app"><div class="card">Abrindo o caderninho…</div></main>
@@ -217,7 +236,8 @@ const IC={
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   money:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>',
   cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
-  img:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-8 8"/></svg>'
+  img:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-8 8"/></svg>',
+  eu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>'
 };
 
 /* ---------- dados (guardados no próprio celular) ---------- */
@@ -440,7 +460,10 @@ function registrarPag(valor){
 
 /* cópia de segurança */
 function formConfig(){
-  abrir(`<h1>Cópia de segurança</h1>
+  const u=usuario(),n=u&&(nomeDe(u)||u.email);
+  abrir(`<h1>Configurações</h1>
+  <div class="list"><button class="item" data-act="conta"><span class="avatar">${u?inicial(n):IC.eu}</span><span class="grow"><span class="name">Minha conta</span><br><span class="muted small" style="overflow-wrap:anywhere">${u?esc(u.email):contaPronta()?'Criar conta ou entrar':'Em breve'}</span></span><span class="muted" aria-hidden="true" style="font-size:1.6rem">›</span></button></div>
+  <h2>Cópia de segurança</h2>
   <p class="muted" style="margin:0">Suas contas ficam guardadas só neste celular. Guarde uma cópia de vez em quando: se trocar de celular ou limpar o navegador, você recupera tudo.</p>
   <button class="btn" data-act="baixar">Salvar cópia em arquivo</button>
   <button class="btn soft" data-act="copiar">Copiar cópia (para colar no WhatsApp)</button>
@@ -449,6 +472,14 @@ function formConfig(){
   <div class="field"><label for="restTxt">Ou cole aqui o texto da cópia</label><textarea class="input" id="restTxt" placeholder="Cole aqui…"></textarea></div>
   <button class="btn ghost" data-act="restaurarTxt">Recuperar do texto colado</button>
   ${blocoInstalar()}
+  <h2>Como usar o caderninho</h2>
+  <div class="list">${[
+    ['Resumo','Quanto falta receber de todo mundo, quanto vendeu, quanto já recebeu e o seu lucro.'],
+    ['Clientes','A ficha de cada pessoa: o que pegou, o que pagou e quanto deve. Dá para cobrar pelo WhatsApp.'],
+    ['Anotar venda','Quem pegou, o que pegou e quando. Se pagou na hora, é só marcar.'],
+    ['Produtos','Seus doces, com foto, preço e quanto gasta para fazer cada um.'],
+    ['Bonequinho lá em cima','A sua conta: nome, e-mail, senha e a proteção em 2 etapas.']
+  ].map(([t,d])=>`<div class="item"><span class="grow"><span class="name">${t}</span><br><span class="muted small">${d}</span></span></div>`).join('')}</div>
   <button class="btn ghost" data-act="fechar">Fechar</button>`)}
 const backupTexto=()=>JSON.stringify({app:'caderninho',versao:1,em:new Date().toISOString(),dados:{produtos:S.produtos,clientes:S.clientes,lanc:S.lanc}});
 function marcarBackup(){S.ultimoBackup=Date.now();salvar()}
@@ -458,10 +489,297 @@ function restaurar(txt){
   perguntar('Trocar pelas contas da cópia?',`A cópia tem ${d.clientes.length} clientes e ${d.produtos.length} produtos. O que está no caderninho agora será substituído.`,'Sim, recuperar',()=>{S.produtos=d.produtos;S.clientes=d.clientes;S.lanc=d.lanc;S.ultimoBackup=Date.now();salvar();fechar();ui.view='resumo';render();toast('Contas recuperadas! ✅')});
 }
 
+/* ---------- minha conta (nome, e-mail e senha) ----------
+   Usa o Supabase Auth direto pela internet, só com fetch (sem biblioteca). Como ligar: docs/conta.md.
+   A conta guarda só nome, e-mail e senha; vendas, clientes e doces continuam só no celular.
+   Enquanto CONTA_URL e CONTA_CHAVE estiverem vazios, o app funciona igual e "Minha conta" diz "em breve". */
+const CONTA_URL='';   // ex.: 'https://abcdefghij.supabase.co'
+const CONTA_CHAVE=''; // chave pública do projeto (anon ou publishable) — pode ficar no código
+const KEY_CONTA='caderninho-conta';
+const contaPronta=()=>!!(CONTA_URL&&CONTA_CHAVE);
+let sessao=null; // {access_token, refresh_token, expires_at, user}
+class ErroConta extends Error{constructor(c){super(c);this.codigo=c}}
+const ERROS={
+  sem_internet:'Sem internet agora. Tente de novo quando conectar.',
+  sessao:'Sua entrada na conta venceu. Entre de novo.',
+  invalid_credentials:'E-mail ou senha não conferem.',
+  email_not_confirmed:'Você ainda não confirmou seu e-mail. Veja sua caixa de entrada.',
+  user_already_exists:'Esse e-mail já tem conta. Toque em “Já tenho conta”.',
+  email_exists:'Esse e-mail já tem conta. Toque em “Já tenho conta”.',
+  weak_password:'Essa senha é fácil de adivinhar. Misture letras e números.',
+  email_address_invalid:'Esse e-mail parece errado. Confira.',
+  validation_failed:'Confira o e-mail e a senha.',
+  over_email_send_rate_limit:'Muitos e-mails em pouco tempo. Espere alguns minutos e tente de novo.',
+  over_request_rate_limit:'Muitas tentativas seguidas. Espere um pouquinho.',
+  mfa_verification_failed:'Código errado ou vencido. Confira no aplicativo e tente de novo.',
+  mfa_challenge_expired:'O código venceu. Digite o que está aparecendo agora.',
+  same_password:'A senha nova é igual à antiga.',
+  reauthentication_needed:'Por segurança, saia da conta e entre de novo antes de trocar a senha.',
+  insufficient_aal:'Digite o código de segurança primeiro.',
+  signup_disabled:'Os cadastros estão fechados no momento.'
+};
+const msgErro=e=>ERROS[e&&e.codigo]||'Não deu certo agora. Tente de novo daqui a pouco.';
+function codigoErro(j,status){
+  j=j||{};const d=String(j.msg||j.error_description||j.message||'');
+  let c=j.error_code||(typeof j.code==='string'?j.code:'')||j.error||'';
+  if(/email not confirmed/i.test(d))c='email_not_confirmed';
+  else if(/invalid login credentials/i.test(d))c='invalid_credentials';
+  else if(/already registered/i.test(d))c='user_already_exists';
+  else if(/password should/i.test(d)&&!ERROS[c])c='weak_password';
+  if(!ERROS[c]&&status===429)c='over_request_rate_limit';
+  return c||'erro';
+}
+const SAIU=['bad_jwt','session_not_found','session_expired','refresh_token_not_found','refresh_token_already_used','user_not_found'];
+async function api(caminho,{metodo='POST',corpo,token,busca}={}){
+  const h={apikey:CONTA_CHAVE,'Content-Type':'application/json'};if(token)h.Authorization='Bearer '+token;
+  let r;
+  try{r=await fetch(CONTA_URL.replace(/\/+$/,'')+'/auth/v1/'+caminho+(busca?'?'+new URLSearchParams(busca):''),{method:metodo,headers:h,body:corpo?JSON.stringify(corpo):undefined})}
+  catch(e){throw new ErroConta('sem_internet')}
+  let j=null;try{j=await r.json()}catch(e){}
+  if(!r.ok){const c=codigoErro(j,r.status);if(SAIU.includes(c)){if(token)guardarSessao(null);throw new ErroConta('sessao')}throw new ErroConta(c)}
+  return j||{};
+}
+const volta=()=>({redirect_to:location.origin+location.pathname}); // para onde o link do e-mail traz de volta
+function lerSessao(){try{sessao=JSON.parse(localStorage.getItem(KEY_CONTA))||null}catch(e){sessao=null}}
+function guardarSessao(s){sessao=s||null;try{sessao?localStorage.setItem(KEY_CONTA,JSON.stringify(sessao)):localStorage.removeItem(KEY_CONTA)}catch(e){}atualizarPerfil()}
+const sessaoDe=(j,user)=>({access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Number(j.expires_at)||Math.floor(Date.now()/1000)+(Number(j.expires_in)||3600),user:j.user||user||null});
+let renovando=null;
+function tokenValido(){
+  if(!sessao)return Promise.reject(new ErroConta('sessao'));
+  if(sessao.expires_at-60>Date.now()/1000)return Promise.resolve(sessao.access_token);
+  if(!renovando)renovando=api('token',{busca:{grant_type:'refresh_token'},corpo:{refresh_token:sessao.refresh_token}})
+    .then(j=>{guardarSessao(sessaoDe(j,sessao&&sessao.user));return j.access_token})
+    .catch(e=>{if(e.codigo!=='sem_internet'){guardarSessao(null);throw new ErroConta('sessao')}throw e})
+    .finally(()=>{renovando=null});
+  return renovando;
+}
+const logado=async(caminho,op)=>api(caminho,Object.assign({},op,{token:await tokenValido()}));
+async function atualizarUsuario(){const u=await logado('user',{metodo:'GET'});if(sessao){sessao.user=u;guardarSessao(sessao)}return u}
+const jwt=t=>{try{return JSON.parse(atob(String(t).split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch(e){return{}}};
+/* proteção em 2 etapas: código de 6 números de um aplicativo como o Google Authenticator */
+const fator2=()=>((sessao&&sessao.user&&sessao.user.factors)||[]).find(f=>f.factor_type==='totp'&&f.status==='verified');
+const precisaCodigo=()=>!!(sessao&&fator2()&&jwt(sessao.access_token).aal!=='aal2');
+const usuario=()=>sessao&&sessao.user&&!precisaCodigo()?sessao.user:null;
+const nomeDe=u=>String((u&&u.user_metadata&&u.user_metadata.nome)||'').trim();
+const emailOk=e=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+async function verificarFator(id,code){
+  const c=await logado('factors/'+id+'/challenge',{corpo:{}});
+  const j=await logado('factors/'+id+'/verify',{corpo:{challenge_id:c.id,code}});
+  guardarSessao(sessaoDe(j,sessao&&sessao.user));
+}
+function atualizarPerfil(){
+  const b=$('#btnConta');if(!b)return;const u=usuario(),n=u&&(nomeDe(u)||u.email);
+  b.classList.toggle('eu',!!u);b.innerHTML=u?`<span class="ini">${inicial(n)}</span>`:IC.eu;
+  b.setAttribute('aria-label',u?'Minha conta ('+n+')':'Minha conta');
+}
+
+/* telas da conta */
+const campo=(id,rotulo,attrs,dica)=>`<div class="field"><label for="${id}">${rotulo}</label><input class="input" id="${id}" ${attrs}>${dica?`<span class="muted small">${dica}</span>`:''}</div>`;
+const campoSenha=(id,rotulo,ac,dica)=>`<div class="field"><label for="${id}">${rotulo}</label><div class="senha"><input class="input" id="${id}" type="password" autocomplete="${ac}" autocapitalize="off" spellcheck="false"><button type="button" data-act="verSenha" data-v="${id}">Mostrar</button></div>${dica?`<span class="muted small">${dica}</span>`:''}</div>`;
+const campoCodigo=(id,rotulo)=>campo(id,rotulo,'inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" autofocus');
+let emailConta='',depoisCodigo=null,fatorNovo=null;
+function abrirConta(){
+  if(!contaPronta())return abrir(`<h1>Minha conta</h1><p class="muted" style="margin:0">Em breve você vai poder criar sua conta aqui, só com seu nome, e-mail e uma senha.</p><p class="muted" style="margin:0">Enquanto isso, o caderninho funciona normalmente e suas contas ficam guardadas neste celular.</p><button class="btn ghost" data-act="fechar">Fechar</button>`);
+  if(!sessao)return telaEntrada();
+  if(precisaCodigo())return formCodigo();
+  telaMinhaConta();
+  atualizarUsuario().then(()=>{if($('#telaConta'))telaMinhaConta()}).catch(e=>{if(e.codigo==='sessao'&&$('#telaConta')){telaEntrada();toast(msgErro(e),true)}});
+}
+function telaEntrada(){abrir(`<h1>Minha conta</h1>
+  <p class="muted" style="margin:0">Crie sua conta para o caderninho ficar no seu nome. É rapidinho: só seu nome, seu e-mail e uma senha.</p>
+  <button class="btn" data-act="contaCriar">Criar minha conta</button>
+  <button class="btn soft" data-act="contaEntrar">Já tenho conta — Entrar</button>
+  <p class="muted small" style="margin:0">Suas vendas, clientes e doces continuam guardados neste celular, com ou sem conta.</p>
+  <button class="btn ghost" data-act="fechar">Agora não</button>`)}
+function formCriar(){abrir(`<form><h1>Criar minha conta</h1>
+  ${campo('cNome','Seu nome','autocomplete="name" placeholder="Ex.: Ana Paula" autofocus')}
+  ${campo('cEmail','Seu e-mail',`type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="voce@gmail.com" value="${esc(emailConta)}"`)}
+  ${campoSenha('cSenha','Crie uma senha','new-password','Pelo menos 8 letras ou números. Não use a mesma senha de outro lugar.')}
+  <button class="btn" data-act="contaSalvarCriar">Criar conta</button>
+  <button type="button" class="btn ghost" data-act="contaEntrar">Já tenho conta</button>
+  <button type="button" class="btn ghost" data-act="conta">Voltar</button></form>`)}
+function telaConfirmeEmail(email){emailConta=email;abrir(`<h1>Confirme seu e-mail 📬</h1>
+  <p style="margin:0">Mandamos um e-mail para <b style="overflow-wrap:anywhere">${esc(email)}</b>. Abra e toque em <b>“Confirmar meu e-mail”</b>.</p>
+  <p class="muted" style="margin:0">Depois é só voltar aqui e entrar. Não chegou? Olhe na pasta de spam (lixo eletrônico) ou espere um minutinho.</p>
+  <button class="btn" data-act="contaEntrar">Já confirmei, quero entrar</button>
+  <button class="btn soft" data-act="contaReenviar">Mandar o e-mail de novo</button>
+  <button class="btn ghost" data-act="fechar">Fechar</button>`)}
+function formEntrar(){abrir(`<form><h1>Entrar na minha conta</h1>
+  ${campo('eEmail','Seu e-mail',`type="email" inputmode="email" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="voce@gmail.com" value="${esc(emailConta)}" ${emailConta?'':'autofocus'}`)}
+  ${campoSenha('eSenha','Sua senha','current-password')}
+  <button class="btn" data-act="contaSalvarEntrar">Entrar</button>
+  <button type="button" class="btn ghost" data-act="contaEsqueci">Esqueci minha senha</button>
+  <button type="button" class="btn ghost" data-act="contaCriar">Ainda não tenho conta</button></form>`)}
+function formEsqueci(){abrir(`<form><h1>Esqueci minha senha</h1>
+  <p class="muted" style="margin:0">Escreva seu e-mail. Vamos mandar um link para você criar uma senha nova.</p>
+  ${campo('rEmail','Seu e-mail',`type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" value="${esc(emailConta)}" autofocus`)}
+  <button class="btn" data-act="contaSalvarEsqueci">Mandar o link</button>
+  <button type="button" class="btn ghost" data-act="contaEntrar">Voltar</button></form>`)}
+function formCodigo(depois){depoisCodigo=depois||null;abrir(`<form><h1>Código de segurança</h1>
+  <p class="muted" style="margin:0">Sua conta tem proteção em 2 etapas. Abra o aplicativo de códigos (como o Google Authenticator) e digite os 6 números do <b>Caderninho dos Doces</b>.</p>
+  ${campoCodigo('cCod','Código de 6 números')}
+  <button class="btn" data-act="contaCodigo">Confirmar</button>
+  <button type="button" class="btn ghost" data-act="contaSair">Cancelar e sair da conta</button></form>`)}
+function formSenhaNova(doEmail){abrir(`<form><h1>${doEmail?'Crie uma senha nova':'Trocar minha senha'}</h1>
+  ${doEmail?'<p class="muted" style="margin:0">Escolha a senha nova que você vai usar para entrar no caderninho.</p>':''}
+  <input type="email" autocomplete="username" value="${esc(sessao&&sessao.user&&sessao.user.email)}" hidden>
+  ${campoSenha('nSenha','Senha nova','new-password','Pelo menos 8 letras ou números.')}
+  <button class="btn" data-act="contaSalvarSenha">Salvar senha nova</button>
+  <button type="button" class="btn ghost" data-act="conta">${doEmail?'Agora não':'Voltar'}</button></form>`)}
+function formNome(){abrir(`<form><h1>Mudar meu nome</h1>
+  ${campo('mNome','Seu nome',`autocomplete="name" value="${esc(nomeDe(sessao&&sessao.user))}" autofocus`)}
+  <button class="btn" data-act="contaSalvarNome">Salvar</button>
+  <button type="button" class="btn ghost" data-act="conta">Voltar</button></form>`)}
+function telaMinhaConta(){
+  const u=sessao&&sessao.user;if(!u)return telaEntrada();
+  const nome=nomeDe(u),conf=!!(u.email_confirmed_at||u.confirmed_at),dois=!!fator2();
+  abrir(`<h1 id="telaConta">Minha conta</h1>
+  <div class="card" style="display:flex;align-items:center;gap:12px"><span class="avatar">${inicial(nome||u.email)}</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:800;font-size:1.1rem;overflow-wrap:anywhere">${esc(nome||'Sem nome')}</span><span class="muted small" style="overflow-wrap:anywhere">${esc(u.email)}</span></span></div>
+  <div class="list">
+    <div class="item"><span class="grow">E-mail</span>${conf?'<span class="pill good">Confirmado</span>':'<span class="pill bad">Falta confirmar</span>'}</div>
+    <div class="item"><span class="grow">Proteção em 2 etapas</span>${dois?'<span class="pill good">Ligada</span>':'<span class="pill neutro">Desligada</span>'}</div>
+    ${u.created_at?`<div class="item"><span class="grow">Conta criada em</span><span class="val">${esc(new Date(u.created_at).toLocaleDateString('pt-BR'))}</span></div>`:''}
+  </div>
+  ${conf?'':`<button class="btn" data-act="contaReenviar">Mandar o e-mail de confirmação de novo</button>`}
+  <button class="btn soft" data-act="contaNome">Mudar meu nome</button>
+  <button class="btn soft" data-act="contaSenha">Trocar minha senha</button>
+  <button class="btn soft" data-act="conta2fa">${dois?'Desligar':'Ligar'} a proteção em 2 etapas</button>
+  <button class="btn ghost" data-act="contaSair">Sair da conta</button>
+  <p class="muted small" style="margin:0">Suas vendas, clientes e doces ficam guardados neste celular. Sair da conta não apaga nada.</p>
+  <button class="btn ghost" data-act="fechar">Fechar</button>`)}
+function contaPronto(msg){const d=depoisCodigo;depoisCodigo=null;if(d)return d();telaMinhaConta();if(msg)toast(msg)}
+const oi=()=>{const n=nomeDe(sessao&&sessao.user);return `Que bom te ver${n?', '+n.split(' ')[0]:''}! ✅`};
+function tela2fa(){abrir(`<h1>Proteção em 2 etapas</h1>
+  <p class="muted" style="margin:0">Além da senha, o caderninho vai pedir um código de 6 números quando você entrar na conta. O código aparece num aplicativo grátis, como o <b>Google Authenticator</b> ou o <b>Microsoft Authenticator</b>. Assim, mesmo que alguém descubra sua senha, não consegue entrar.</p>
+  <div class="steps"><div><i>1</i>Instale um desses aplicativos (é grátis)</div><div><i>2</i>Toque em “Começar” e coloque o caderninho nele</div><div><i>3</i>Digite aqui o código que aparecer</div></div>
+  <button class="btn" data-act="contaLigar2fa">Começar</button>
+  <button class="btn ghost" data-act="conta">Voltar</button>`)}
+function tela2faChave(){
+  const f=fatorNovo,qr=String(f.qr||''),src=qr.startsWith('data:')?qr:qr?'data:image/svg+xml;utf8,'+encodeURIComponent(qr):'';
+  abrir(`<form><h1>Coloque o caderninho no aplicativo</h1>
+  ${/^otpauth:\/\//.test(f.uri)?`<a class="btn" href="${esc(f.uri)}">Abrir no aplicativo de códigos</a>`:''}
+  <p class="muted" style="margin:0">Se não abrir, entre no aplicativo, toque em <b>“+”</b> e depois em <b>“Inserir chave”</b> (ou “Digitar chave”). Use esta chave:</p>
+  <div class="chave">${esc(String(f.secret||'').replace(/(.{4})/g,'$1 ').trim())}</div>
+  <button type="button" class="btn soft" data-act="contaCopiarChave">Copiar a chave</button>
+  ${src.startsWith('data:image/')?`<details class="card"><summary>Vai usar outro celular? Mostrar o QR code</summary><img class="qr" src="${esc(src)}" alt="QR code para o aplicativo de códigos"></details>`:''}
+  ${campoCodigo('cCod2','Agora digite o código de 6 números que apareceu lá')}
+  <button class="btn" data-act="contaConf2fa">Confirmar e ligar</button>
+  <button type="button" class="btn ghost" data-act="conta">Cancelar</button></form>`)}
+/* mostra "trabalhando…" no botão enquanto fala com a internet, e o erro em português se der errado */
+async function comBotao(b,texto,fn){
+  const antes=b.innerHTML;b.disabled=true;b.textContent=texto;
+  try{await fn()}catch(e){toast(msgErro(e),true);if(e.codigo==='sessao'&&!$('#sheet').hidden)telaEntrada()}
+  finally{if(b.isConnected){b.disabled=false;b.innerHTML=antes}}
+}
+const pedir=(sel,msg)=>{toast(msg,true);$(sel).focus()};
+const lerCodigo=sel=>{const c=$(sel).value.replace(/\D/g,'');if(c.length!==6){pedir(sel,'Digite os 6 números do código.');return null}return c};
+async function acaoConta(a,b){
+  switch(a){
+    case 'conta': abrirConta(); break;
+    case 'contaCriar': formCriar(); break;
+    case 'contaEntrar': formEntrar(); break;
+    case 'contaEsqueci': { const e=$('#eEmail');if(e&&e.value.trim())emailConta=e.value.trim().toLowerCase(); formEsqueci(); break;}
+    case 'contaNome': formNome(); break;
+    case 'contaSenha': formSenhaNova(false); break;
+    case 'verSenha': { const i=$('#'+b.dataset.v),ver=i.type==='password';i.type=ver?'text':'password';b.textContent=ver?'Esconder':'Mostrar';i.focus(); break;}
+    case 'contaSalvarCriar': {
+      const nome=$('#cNome').value.trim(),email=$('#cEmail').value.trim().toLowerCase(),senha=$('#cSenha').value;
+      if(!nome)return pedir('#cNome','Escreva seu nome.');
+      if(!emailOk(email))return pedir('#cEmail','Confira seu e-mail. Ex.: ana@gmail.com');
+      if(senha.length<8)return pedir('#cSenha','A senha precisa ter pelo menos 8 letras ou números.');
+      emailConta=email;
+      await comBotao(b,'Criando sua conta…',async()=>{
+        const j=await api('signup',{busca:volta(),corpo:{email,password:senha,data:{nome}}});
+        if(j.access_token){guardarSessao(sessaoDe(j));return contaPronto('Conta criada! ✅')}
+        const u=j.user||j; // e-mail já cadastrado volta sem "identities"
+        if(Array.isArray(u.identities)&&!u.identities.length)throw new ErroConta('user_already_exists');
+        telaConfirmeEmail(email);
+      });
+      break;}
+    case 'contaSalvarEntrar': {
+      const email=$('#eEmail').value.trim().toLowerCase(),senha=$('#eSenha').value;
+      if(!emailOk(email))return pedir('#eEmail','Confira seu e-mail. Ex.: ana@gmail.com');
+      if(!senha)return pedir('#eSenha','Escreva sua senha.');
+      emailConta=email;
+      await comBotao(b,'Entrando…',async()=>{
+        let j;try{j=await api('token',{busca:{grant_type:'password'},corpo:{email,password:senha}})}
+        catch(e){if(e.codigo==='email_not_confirmed')telaConfirmeEmail(email);throw e}
+        guardarSessao(sessaoDe(j));
+        if(precisaCodigo())return formCodigo();
+        contaPronto(oi());
+      });
+      break;}
+    case 'contaSalvarEsqueci': {
+      const email=$('#rEmail').value.trim().toLowerCase();
+      if(!emailOk(email))return pedir('#rEmail','Confira seu e-mail. Ex.: ana@gmail.com');
+      emailConta=email;
+      await comBotao(b,'Mandando…',async()=>{
+        await api('recover',{busca:volta(),corpo:{email}});
+        abrir(`<h1>Olhe seu e-mail 📬</h1><p style="margin:0">Se <b style="overflow-wrap:anywhere">${esc(email)}</b> tiver conta no caderninho, chega um link para você criar uma senha nova.</p><p class="muted" style="margin:0">Não chegou? Olhe na pasta de spam (lixo eletrônico).</p><button class="btn ghost" data-act="contaEntrar">Voltar para entrar</button><button class="btn ghost" data-act="fechar">Fechar</button>`);
+      });
+      break;}
+    case 'contaReenviar': {
+      const email=(sessao&&sessao.user&&sessao.user.email)||emailConta;if(!email)return formEntrar();
+      await comBotao(b,'Mandando…',async()=>{await api('resend',{busca:volta(),corpo:{type:'signup',email}});toast('Pronto, mandamos de novo! Olhe também no spam.')});
+      break;}
+    case 'contaCodigo': {
+      const code=lerCodigo('#cCod');if(!code)return;const f=fator2();if(!f)return contaPronto();
+      await comBotao(b,'Conferindo…',async()=>{await verificarFator(f.id,code);contaPronto(oi())});
+      break;}
+    case 'contaSalvarSenha': {
+      const senha=$('#nSenha').value;
+      if(senha.length<8)return pedir('#nSenha','A senha precisa ter pelo menos 8 letras ou números.');
+      await comBotao(b,'Salvando…',async()=>{const u=await logado('user',{metodo:'PUT',corpo:{password:senha}});sessao.user=u;guardarSessao(sessao);telaMinhaConta();toast('Senha nova salva! ✅')});
+      break;}
+    case 'contaSalvarNome': {
+      const nome=$('#mNome').value.trim();if(!nome)return pedir('#mNome','Escreva seu nome.');
+      await comBotao(b,'Salvando…',async()=>{const u=await logado('user',{metodo:'PUT',corpo:{data:{nome}}});sessao.user=u;guardarSessao(sessao);telaMinhaConta();toast('Nome atualizado ✅')});
+      break;}
+    case 'conta2fa': { const f=fator2(); if(!f)return tela2fa();
+      perguntar('Desligar a proteção em 2 etapas?','Depois disso, para entrar na conta vai bastar o e-mail e a senha.','Sim, desligar',async()=>{
+        try{await logado('factors/'+f.id,{metodo:'DELETE'});await atualizarUsuario();telaMinhaConta();toast('Proteção desligada')}
+        catch(e){toast(msgErro(e),true);if(e.codigo==='sessao')telaEntrada()}});
+      break;}
+    case 'contaLigar2fa': await comBotao(b,'Preparando…',async()=>{
+        const u=await atualizarUsuario(); // tira tentativas antigas que não foram até o fim
+        for(const f of u.factors||[])if(f.factor_type==='totp'&&f.status!=='verified')await logado('factors/'+f.id,{metodo:'DELETE'});
+        const j=await logado('factors',{corpo:{factor_type:'totp',friendly_name:'Caderninho',issuer:'Caderninho dos Doces'}});
+        fatorNovo={id:j.id,secret:j.totp&&j.totp.secret,uri:j.totp&&j.totp.uri,qr:j.totp&&j.totp.qr_code};
+        tela2faChave();
+      }); break;
+    case 'contaCopiarChave': try{await navigator.clipboard.writeText(fatorNovo.secret);toast('Chave copiada! Cole no aplicativo de códigos.')}catch(e){toast('Toque e segure na chave para copiar.',true)} break;
+    case 'contaConf2fa': {
+      const code=lerCodigo('#cCod2');if(!code||!fatorNovo)return;
+      await comBotao(b,'Conferindo…',async()=>{await verificarFator(fatorNovo.id,code);fatorNovo=null;await atualizarUsuario();telaMinhaConta();toast('Proteção em 2 etapas ligada! ✅')});
+      break;}
+    case 'contaSair': {
+      const t=sessao&&sessao.access_token;guardarSessao(null);depoisCodigo=null;fechar();
+      if(t)api('logout',{busca:{scope:'local'},token:t}).catch(()=>{});
+      toast('Você saiu da conta. Suas contas continuam neste celular.'); break;}
+  }
+}
+/* quem toca no link do e-mail (confirmar conta ou criar senha nova) volta para cá com a entrada no endereço */
+async function voltouDoEmail(){
+  const h=new URLSearchParams(location.hash.slice(1)),q=new URLSearchParams(location.search);
+  const tok=h.get('access_token'),erro=h.get('error_code')||h.get('error')||q.get('error_code')||q.get('error');
+  if(!tok&&!erro)return false;
+  history.replaceState(null,'',location.pathname);
+  if(!contaPronta())return false;
+  if(erro){abrir(`<h1>Esse link não vale mais</h1><p class="muted" style="margin:0">${erro==='otp_expired'?'Ele venceu ou já foi usado.':'Não deu para abrir o link.'} Se você já confirmou seu e-mail, é só entrar. Se não, entre e peça outro.</p><button class="btn" data-act="contaEntrar">Entrar</button><button class="btn ghost" data-act="fechar">Fechar</button>`);return true}
+  const tipo=h.get('type');
+  guardarSessao(sessaoDe({access_token:tok,refresh_token:h.get('refresh_token'),expires_at:h.get('expires_at'),expires_in:h.get('expires_in')}));
+  try{await atualizarUsuario()}catch(e){toast(msgErro(e),true);return true}
+  if(tipo==='recovery'){if(precisaCodigo())formCodigo(()=>formSenhaNova(true));else formSenhaNova(true);return true}
+  if(precisaCodigo()){formCodigo();return true}
+  contaPronto(tipo==='signup'?'E-mail confirmado! ✅ Sua conta está pronta.':'Pronto, você entrou na sua conta ✅');
+  return true;
+}
+
 /* ---------- cliques ---------- */
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
   const a=b.dataset.act,id=b.dataset.id;
+  if(a.startsWith('conta')||a==='verSenha')return acaoConta(a,b);
   switch(a){
     case 'ir': if(b.dataset.v==='vender'&&ui.view!=='vender'&&!ui.venda.clienteId&&!Object.keys(ui.venda.itens).length)ui.venda=novaVenda(); ir(b.dataset.v); break;
     case 'periodo': ui.periodo=b.dataset.v; render(); break;
@@ -531,6 +849,7 @@ document.addEventListener('click',async e=>{
     case 'restaurarTxt': { const t=$('#restTxt').value.trim(); if(!t){toast('Cole o texto da cópia primeiro.',true);return} restaurar(t); break;}
   }
 });
+document.addEventListener('submit',e=>e.preventDefault()); // "Ok/Ir" do teclado aperta o botão principal do formulário
 document.addEventListener('input',e=>{
   if(e.target.id==='buscaCli'){ui.busca=e.target.value;$('#listaCli').innerHTML=listaClientesHTML()}
   if(e.target.id==='buscaVenda'){ui.venda.buscaCli=e.target.value;const b=ui.venda.buscaCli.trim().toLowerCase();
@@ -548,7 +867,10 @@ document.addEventListener('change',async e=>{
 /* ---------- começar ---------- */
 (async()=>{
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  lerSessao();atualizarPerfil();
   await carregar();render();
+  if(!(await voltouDoEmail())&&sessao&&contaPronta())atualizarUsuario().catch(()=>{});
+  window.addEventListener('hashchange',voltouDoEmail);
 })();
 /* funciona sem internet depois da primeira vez */
 if('serviceWorker' in navigator&&location.protocol!=='file:'){navigator.serviceWorker.register('./sw.js').catch(()=>{})}
