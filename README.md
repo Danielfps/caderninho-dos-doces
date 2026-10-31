@@ -22,6 +22,9 @@ quanto vendeu no mês, quanto já recebeu e o lucro.
   serve para dar de presente, dar desconto ou acertar a conta.
 - **Cobrar no WhatsApp** — abre o WhatsApp com a mensagem de cobrança já escrita, assinada com o nome do negócio.
 - **Resumo** — falta receber, vendi, recebi e meu lucro (no mês ou desde o começo) e quem está devendo.
+- **Planilha** (botão "Consultar planilha" no Resumo) — as abas da planilha de custos dentro do app: Meu Mês,
+  materiais, receitas, custo e preço sugerido de cada produto, e se o mês pagou as contas e o seu salário. Usa os
+  mesmos dados do app. Dá para **baixar a planilha** (Excel) preenchida e **trazer de volta** depois de editar.
 - **Ajustes** (engrenagem ⚙️) — nome do negócio, que aparece no topo e na cobrança.
 - **Cópia de segurança** — salva em arquivo ou copia o texto para guardar numa conversa do WhatsApp.
 - **Funciona sem internet** depois da primeira vez que abre.
@@ -64,6 +67,7 @@ As contas da versão de teste ficam guardadas lá, não passam sozinhas para o a
 | Arquivo | Para que serve |
 |---|---|
 | `app/index.html` | O app inteiro (telas, contas e visual) |
+| `app/planilha-modelo.xlsx` | A planilha de custos que o app preenche ao baixar |
 | `app/manifest.webmanifest` | Nome, cores e ícone para instalar no celular |
 | `app/sw.js` | Faz o app abrir sem internet |
 | `app/icons/` | Ícones do app |

@@ -66,6 +66,19 @@ caderninho passou a servir para todos eles, ajudando a ter um controle muito mel
 - **Mudar o valor que deve:** na página do cliente, para dar de presente, dar desconto ou acertar a conta.
   Fica anotado no histórico ("Desconto de presente" ou "Correção do valor") e dá para desfazer apagando a linha.
 
+## Planilha de custos ligada ao app (31/10/2026)
+
+Numa outra conversa foi feita a planilha "Caderninho — controle de fiado" (custos, preços e fiado, 10 abas).
+Ela agora faz parte do app (`app/planilha-modelo.xlsx`):
+
+- Botão **Consultar planilha** no Resumo (sem mexer no rodapé). Abre as mesmas abas: Resumo, Vendas, Recebi,
+  Acertos, Clientes, Produtos, Receitas, Materiais e Meu Mês, com as mesmas contas.
+- As duas conversam: vendas, pagamentos, acertos e clientes anotados no app aparecem na planilha; o custo que a
+  planilha calcula (receita ou compra pronta, com as perdas) vai para o produto no app.
+- **Baixar planilha** gera o arquivo do Excel preenchido com tudo do app. **Trazer planilha editada** lê o arquivo
+  mexido no Excel ou no Google Planilhas: o que for novo entra no app, sem repetir o que já veio dele.
+- Conferido no LibreOffice: as contas da planilha baixada batem com as do app.
+
 ## Falta fazer
 
 - [x] Deixar o repositório público e ligar o GitHub Pages (29/10/2026).

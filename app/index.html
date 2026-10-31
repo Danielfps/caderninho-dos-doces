@@ -23,7 +23,7 @@
 :root{
   --bg:#f4f5f7; --surface:#ffffff; --surface-2:#eef0f4; --ink:#15181e; --muted:#5d6573; --line:#e1e4ea;
   --accent:#1d4ed8; --accent-ink:#ffffff; --accent-soft:#e8eefc; --bar:#1d4ed8; --bar-ink:#ffffff;
-  --good:#15803d; --good-soft:#e6f4ea; --bad:#c2321b; --bad-soft:#fcebe7;
+  --good:#15803d; --good-soft:#e6f4ea; --bad:#c2321b; --bad-soft:#fcebe7; --warn:#a15c07; --warn-soft:#fdf1e1;
   --shadow:0 1px 2px rgba(16,24,40,.06); --lift:0 10px 30px rgba(16,24,40,.18);
   --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --r:14px;
@@ -33,12 +33,12 @@
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#0e1014; --surface:#171a20; --surface-2:#20242c; --ink:#eceef2; --muted:#9ba3b0; --line:#2a2f39;
   --accent:#7c9dff; --accent-ink:#0a1433; --accent-soft:#1b2747; --bar:#171a20; --bar-ink:#eceef2;
-  --good:#5ccf8a; --good-soft:#132a1d; --bad:#ff8c76; --bad-soft:#3a1c17;
+  --good:#5ccf8a; --good-soft:#132a1d; --bad:#ff8c76; --bad-soft:#3a1c17; --warn:#f2b45a; --warn-soft:#3a2a12;
   --shadow:none; --lift:0 10px 30px rgba(0,0,0,.5); color-scheme:dark } }
 :root[data-theme="dark"]{
   --bg:#0e1014; --surface:#171a20; --surface-2:#20242c; --ink:#eceef2; --muted:#9ba3b0; --line:#2a2f39;
   --accent:#7c9dff; --accent-ink:#0a1433; --accent-soft:#1b2747; --bar:#171a20; --bar-ink:#eceef2;
-  --good:#5ccf8a; --good-soft:#132a1d; --bad:#ff8c76; --bad-soft:#3a1c17;
+  --good:#5ccf8a; --good-soft:#132a1d; --bad:#ff8c76; --bad-soft:#3a1c17; --warn:#f2b45a; --warn-soft:#3a2a12;
   --shadow:none; --lift:0 10px 30px rgba(0,0,0,.5); color-scheme:dark }
 
 *{box-sizing:border-box}
@@ -189,6 +189,36 @@ textarea.input{padding:12px 14px;min-height:110px;font-size:.85rem}
   display:flex;align-items:center;gap:8px;padding:13px 18px;border-radius:12px;font-weight:600;box-shadow:var(--lift);max-width:calc(100% - 32px);width:max-content}
 .toast svg{width:20px;height:20px;flex:none}
 .toast.erro{background:var(--bad);color:var(--surface)}
+
+/* planilha: abas, mês, tabelas e linhas "rótulo … valor" */
+.abas{display:flex;gap:8px;overflow-x:auto;margin-inline:-16px;padding:2px 16px 6px;scrollbar-width:none}
+.abas::-webkit-scrollbar{display:none}
+.abas .chip{flex:none;min-height:44px}
+.mesbar{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.mesbar b{display:block;font-weight:600}
+.mesbar b::first-letter{text-transform:uppercase}
+.mesbar .x{border:0;font-size:1.6rem;color:var(--accent)}
+.tabela-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.tabela{border-collapse:collapse;width:100%;font-size:.88rem}
+.tabela th,.tabela td{padding:10px 12px;border-top:1px solid var(--line);text-align:left;white-space:nowrap}
+.tabela thead th{border-top:0;font-size:.72rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--surface-2)}
+.tabela .num{text-align:right;font-variant-numeric:tabular-nums}
+.tabela tbody th{font-weight:500;white-space:normal;min-width:140px}
+.tabela tr[data-act]{cursor:pointer}
+.tabela tfoot th,.tabela tfoot td{font-weight:700;background:var(--surface-2)}
+.kvs{display:flex;flex-direction:column;gap:10px}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.kv>span{color:var(--muted);font-size:.92rem}
+.kv>b{white-space:nowrap;font-variant-numeric:tabular-nums}
+button.card{font:inherit;color:inherit;text-align:left;width:100%}
+.barra{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.barra span{display:block;height:100%;background:var(--accent);border-radius:inherit}
+.pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.neutra{background:var(--surface-2);color:var(--muted)}
+.aviso{margin:0;padding:10px 12px;border-radius:10px;font-weight:600}
+.aviso.good{background:var(--good-soft);color:var(--good)} .aviso.bad{background:var(--bad-soft);color:var(--bad)} .aviso.neutra{background:var(--surface-2)}
+.passo{display:flex;gap:12px;align-items:center;border:0;background:transparent;text-align:left;padding:4px 0;min-height:48px;width:100%}
+.passo i{font-style:normal;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:.9rem;flex:none}
+select.input{padding-right:8px}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:360px){.big{font-size:2.1rem}.mid{font-size:1.25rem}.checkout .btn{padding:0 18px}}
 </style>
@@ -243,19 +273,22 @@ const IC={
   pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
   x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  grade:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>',
+  baixar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+  trazer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg>',
   chev:'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
 };
 
 /* ---------- dados (guardados no próprio celular) ---------- */
 const KEY='caderninho-v1';
-let S={produtos:[],clientes:[],lanc:[],ajustes:{negocio:''},ultimoBackup:null};
+let S={produtos:[],clientes:[],lanc:[],ajustes:{negocio:''},planilha:null,ultimoBackup:null};
 function abrirIDB(){return new Promise((res,rej)=>{try{const r=indexedDB.open('caderninho',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}})}
 async function carregar(){
   try{const db=await abrirIDB();const v=await new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get(KEY);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});if(v){S=Object.assign(S,v);return}}catch(e){}
   try{const v=localStorage.getItem(KEY);if(v)S=Object.assign(S,JSON.parse(v))}catch(e){}
 }
-/* dados antigos (e cópias antigas) não têm "ajustes": completa com o padrão */
-function completar(){S.ajustes=Object.assign({negocio:''},S.ajustes)}
+/* dados antigos (e cópias antigas) não têm "ajustes" nem "planilha": completa com o padrão */
+function completar(){S.ajustes=Object.assign({negocio:''},S.ajustes);S.planilha=Object.assign(planilhaPadrao(),S.planilha)}
 async function salvar(){
   const copia=JSON.parse(JSON.stringify(S));
   let ok=false;
@@ -300,7 +333,7 @@ function blocoInstalar(){
 }
 
 /* ---------- estado da tela ---------- */
-const ui={view:'resumo',cliente:null,periodo:'mes',busca:'',venda:novaVenda()};
+const ui={view:'resumo',cliente:null,periodo:'mes',busca:'',venda:novaVenda(),aba:'resumo',mes:hoje().slice(0,7)};
 function novaVenda(cid){return{clienteId:cid||null,itens:{},avulsos:[],data:hoje(),pagou:false,buscaCli:'',buscaProd:''}}
 
 /* ---------- pedaços repetidos ---------- */
@@ -320,7 +353,8 @@ function vResumo(){
       <div class="steps"><div><i>1</i>Quando alguém comprar fiado, toque em “Anotar venda”</div><div><i>2</i>Quando a pessoa pagar, toque em “Recebi”</div><div><i>3</i>Aqui no Resumo você vê quem deve e há quanto tempo</div></div>
       <button class="btn" data-act="ir" data-v="vender">${IC.plus}Anotar a primeira venda</button>
       <button class="btn ghost" data-act="novoProduto">Cadastrar meus produtos</button>
-      <p class="muted small" style="margin:0">Cadastrar produtos é opcional: dá para anotar só o valor.</p></div>`;
+      <p class="muted small" style="margin:0">Cadastrar produtos é opcional: dá para anotar só o valor.</p>
+      <button class="linkbtn" data-act="ir" data-v="planilha">Calcular custos e preços na planilha</button></div>`;
   }
   const dev=S.clientes.map(c=>({c,d:saldo(c.id).deve})).filter(x=>x.d>0).sort((a,b)=>b.d-a.d);
   const semCusto=S.produtos.some(p=>p.ativo&&!(p.custo>0));
@@ -343,6 +377,7 @@ function vResumo(){
   </div>
   <div class="card"><div class="lbl">Meu lucro</div><div class="mid num">${brl(r.lucro)}</div>
     <div class="muted small">${semCusto?'Para o lucro ficar certo, coloque quanto custa cada produto em “Produtos”.':'É o que vendi menos o que gastei com os produtos.'}${r.avulso?' Valores digitados à mão entram sem custo.':''}</div></div>
+  <button class="btn ghost" data-act="ir" data-v="planilha">${IC.grade}Consultar planilha</button>
   <h2>Quem está devendo</h2>
   ${dev.length?`<div class="list">${dev.map(x=>`<button class="item" data-act="abrirCli" data-id="${x.c.id}">${avatar(x.c.nome)}<span class="grow"><span class="name">${esc(x.c.nome)}</span><span class="sub">${subCli(x.c,'desde '+fmtCurta(desde(x.c.id)))}</span></span><span class="val c-bad">${brl(x.d)}</span></button>`).join('')}</div>`
     :`<div class="card muted">Ninguém na lista. Todo mundo pagou.</div>`}`;
@@ -450,13 +485,13 @@ function vProdutos(){
 
 function render(){
   const v=ui.view;
-  const html=v==='resumo'?vResumo():v==='clientes'?vClientes():v==='cliente'?vCliente():v==='vender'?vVender():vProdutos();
+  const html=v==='resumo'?vResumo():v==='clientes'?vClientes():v==='cliente'?vCliente():v==='vender'?vVender():v==='planilha'?vPlanilha():vProdutos();
   $('#app').innerHTML=html;
   $('#marca').textContent=S.ajustes.negocio.trim()||'Controle de fiado';
-  const tabV=v==='cliente'?'clientes':v;
+  const tabV=v==='cliente'?'clientes':v==='planilha'?'resumo':v;
   document.querySelectorAll('.tab').forEach(t=>{if(t.dataset.v===tabV)t.setAttribute('aria-current','page');else t.removeAttribute('aria-current')});
 }
-function ir(v){ui.view=v;render();window.scrollTo(0,0)}
+function ir(v){ui.view=v;render();window.scrollTo(0,0);const a=$('.abas [aria-pressed="true"]');if(a)a.scrollIntoView({block:'nearest',inline:'center'})}
 
 /* ---------- janelas (de baixo para cima) ---------- */
 function abrir(html){$('#sheetBody').innerHTML=html;$('#sheet').hidden=false;const f=$('#sheetBody [autofocus]');if(f)setTimeout(()=>f.focus(),50)}
@@ -464,7 +499,7 @@ function fechar(){$('#sheet').hidden=true;$('#sheetBody').innerHTML=''}
 $('#sheet').addEventListener('click',e=>{if(e.target.id==='sheet')fechar()});
 let tt;function toast(m,erro){const t=$('#toast');t.innerHTML=(erro?'':IC.ok)+'<span>'+esc(m)+'</span>';t.classList.toggle('erro',!!erro);t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,erro?4500:2600)}
 let confirmar=null;
-function perguntar(titulo,texto,botao,acao){confirmar=acao;abrir(`<h1>${titulo}</h1><p class="muted" style="margin:0">${texto}</p><button class="btn danger" data-act="sim">${botao}</button><button class="btn ghost" data-act="fechar">Não, voltar</button>`)}
+function perguntar(titulo,texto,botao,acao,estilo='danger'){confirmar=acao;abrir(`<h1>${titulo}</h1><p class="muted" style="margin:0">${texto}</p><button class="btn ${estilo}" data-act="sim">${botao}</button><button class="btn ghost" data-act="fechar">Não, voltar</button>`)}
 
 /* cliente */
 let cliOrigem=null;
@@ -480,16 +515,19 @@ function formCli(c){abrir(`<h1>${c?'Editar cliente':'Novo cliente'}</h1>
 let fotoTemp=null;
 const fotoHTML=()=>fotoTemp?`<img src="${fotoTemp}" alt="Foto do produto">`:`<span class="muted small" style="padding:10px;text-align:center">Sem foto</span>`;
 function formProd(p){fotoTemp=p?.foto||null;const vendido=p&&S.lanc.some(l=>l.tipo==='venda'&&l.itens.some(i=>i.produtoId===p.id));
+  const calc=p&&calcProd(p),daPlanilha=calc&&(calc.fonte==='pronto'||calc.fonte==='receita');
   abrir(`<h1>${p?'Editar produto':'Novo produto'}</h1>
   <div class="field"><label for="pNome">Nome</label><input class="input" id="pNome" value="${esc(p?.nome)}" placeholder="Ex.: Coxinha, Suco, Bolo de pote" autocomplete="off"></div>
   <div class="field"><label for="pPreco">Preço de venda</label><div class="money"><span>R$</span><input class="input" id="pPreco" inputmode="decimal" value="${p?moneyStr(p.preco):''}" placeholder="0,00"></div></div>
-  <div class="field"><label for="pCusto">Quanto me custa cada um <span class="opt">(se souber)</span></label><div class="money"><span>R$</span><input class="input" id="pCusto" inputmode="decimal" value="${p&&p.custo>0?moneyStr(p.custo):''}" placeholder="0,00"></div></div>
+  ${daPlanilha?`<div class="field"><label>Quanto me custa cada um</label><div class="card" style="padding:12px 14px"><b class="num">${brl(p.custo)}</b> <span class="muted small">calculado na planilha (${calc.fonte==='receita'?'pela receita':'compra pronta'}, com as perdas). Para mudar, toque em “Ver na planilha”.</span></div></div>`
+    :`<div class="field"><label for="pCusto">Quanto me custa cada um <span class="opt">(se souber)</span></label><div class="money"><span>R$</span><input class="input" id="pCusto" inputmode="decimal" value="${p&&p.custo>0?moneyStr(p.custo):''}" placeholder="0,00"></div></div>`}
   <div class="field"><label>Foto <span class="opt">(se quiser)</span></label>
     <div class="fotobox" id="fotoBox">${fotoHTML()}</div>
     <button class="linkbtn" data-act="semFoto" id="semFoto" ${fotoTemp?'':'hidden'}>Apagar a foto</button>
     <div class="row"><label class="btn ghost filebtn">${IC.cam}Câmera<input type="file" accept="image/*" capture="environment" id="fotoCam"></label><label class="btn ghost filebtn">${IC.img}Galeria<input type="file" accept="image/*" id="fotoGal"></label></div></div>
   ${p?`<button class="toggle" role="switch" id="pAtivo" aria-checked="${p.ativo}" data-act="toggleAtivo"><span class="sw"></span><span>Ainda estou vendendo</span></button>`:''}
   <button class="btn" data-act="salvarProd" data-id="${p?.id||''}">Salvar</button>
+  ${p?`<button class="btn ghost" data-act="planProd" data-id="${p.id}">${IC.grade}Ver na planilha (custo e preço sugerido)</button>`:''}
   ${p&&!vendido?`<button class="btn danger" data-act="apagarProd" data-id="${p.id}">Apagar produto</button>`:''}
   <button class="btn ghost" data-act="fechar">Cancelar</button>`)}
 function comprimir(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const max=480,k=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};img.onerror=rej;img.src=fr.result};fr.onerror=rej;fr.readAsDataURL(file)})}
@@ -580,12 +618,431 @@ function formConfig(){
   <button class="btn ghost" data-act="restaurarTxt">Recuperar do texto colado</button>
   ${blocoInstalar()}
   <button class="btn ghost" data-act="fechar">Fechar</button>`)}
-const backupTexto=()=>JSON.stringify({app:'caderninho',versao:1,em:new Date().toISOString(),dados:{produtos:S.produtos,clientes:S.clientes,lanc:S.lanc,ajustes:S.ajustes}});
+const backupTexto=()=>JSON.stringify({app:'caderninho',versao:1,em:new Date().toISOString(),dados:{produtos:S.produtos,clientes:S.clientes,lanc:S.lanc,ajustes:S.ajustes,planilha:S.planilha}});
 function marcarBackup(){S.ultimoBackup=Date.now();salvar()}
 function restaurar(txt){
   let o;try{o=JSON.parse(txt)}catch(e){toast('Esse texto não é uma cópia do caderninho.',true);return}
   const d=o&&o.dados;if(!d||!Array.isArray(d.produtos)||!Array.isArray(d.clientes)||!Array.isArray(d.lanc)){toast('Esse texto não é uma cópia do caderninho.',true);return}
-  perguntar('Trocar pelas contas da cópia?',`A cópia tem ${d.clientes.length} clientes e ${d.produtos.length} produtos. O que está no caderninho agora será substituído.`,'Sim, recuperar',()=>{S.produtos=d.produtos;S.clientes=d.clientes;S.lanc=d.lanc;if(d.ajustes)S.ajustes=d.ajustes;completar();S.ultimoBackup=Date.now();salvar();fechar();ui.view='resumo';render();toast('Contas recuperadas')});
+  perguntar('Trocar pelas contas da cópia?',`A cópia tem ${d.clientes.length} clientes e ${d.produtos.length} produtos. O que está no caderninho agora será substituído.`,'Sim, recuperar',()=>{S.produtos=d.produtos;S.clientes=d.clientes;S.lanc=d.lanc;if(d.ajustes)S.ajustes=d.ajustes;if(d.planilha)S.planilha=d.planilha;completar();S.ultimoBackup=Date.now();salvar();fechar();ui.view='resumo';render();toast('Contas recuperadas')});
+}
+
+/* ---------- planilha: custos, preços e as contas do mês ----------
+   Mesmas abas e contas da "planilha de custos" (app/planilha-modelo.xlsx). Clientes, produtos, vendas, pagamentos
+   e acertos são os do app; o que é só da planilha fica em S.planilha. O custo que ela calcula (receita ou compra
+   pronta, com as perdas) vai para p.custo, que é o que as vendas guardam. */
+const CONTAS_PADRAO=[['Gás','A parte do gás usada no trabalho'],['Luz','Só a parte do trabalho, se der para separar'],['Água',''],['Internet e celular',''],['MEI (DAS)','Se for MEI, o boleto do mês'],['Transporte e entregas','Combustível, ônibus, motoboy'],['Manutenção de equipamentos','Guarde um pouco por mês para quando algo quebrar'],['Material de limpeza',''],['Divulgação','Cardápio, anúncio, cartão'],['Mensalidade da maquininha',''],['Aluguel ou ponto','A parte que usa']];
+function planilhaPadrao(){return{contas:CONTAS_PADRAO.map(([nome,obs])=>({id:uid(),nome,valor:0,obs})),salario:0,dias:22,horasDia:5,taxas:.03,perdas:.05,lucro:.15,materiais:[],receitas:[],importados:[]}}
+const PL=()=>S.planilha;
+const nn=x=>Number(x)||0;
+const lerNum=s=>{const v=parseMoney(s);return isNaN(v)?0:v};
+const numStr=x=>x?String(x).replace('.',','):'';
+const pct=x=>x==null||!isFinite(x)?'—':x.toLocaleString('pt-BR',{style:'percent',maximumFractionDigits:1});
+const bv=x=>x==null||!isFinite(x)?'—':brl(x);
+const porData=(a,b)=>(a.data+a.criado).localeCompare(b.data+b.criado);
+const nomeMes=m=>{const[a,mm]=m.split('-');return new Date(+a,+mm-1,1).toLocaleString('pt-BR',{month:'long',year:'numeric'})};
+const mesMais=(m,d)=>{const[a,mm]=m.split('-').map(Number),x=new Date(a,mm-1+d,1);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')};
+const kv=(rot,val,cls='')=>`<div class="kv"><span>${rot}</span><b class="${cls}">${val}</b></div>`;
+
+const contasFixas=()=>r2(PL().contas.reduce((t,c)=>t+nn(c.valor),0));
+const horasMes=()=>nn(PL().dias)*nn(PL().horasDia);
+const valorHora=()=>horasMes()>0?(contasFixas()+nn(PL().salario))/horasMes():0;
+const mat=id=>PL().materiais.find(m=>m.id===id);
+const porMedida=m=>m.medida==='g'?'o quilo':m.medida==='ml'?'o litro':'a unidade';
+const saiPor=m=>nn(m.qtd)>0?(m.medida==='g'||m.medida==='ml'?nn(m.preco)/m.qtd*1000:nn(m.preco)/m.qtd):null;
+const custoLinha=r=>{const m=mat(r.materialId);return m&&nn(m.qtd)>0?nn(r.qtd)*nn(m.preco)/m.qtd:0};
+const linhasReceita=pid=>PL().receitas.filter(r=>r.produtoId===pid);
+const custoReceita=pid=>linhasReceita(pid).reduce((t,r)=>t+custoLinha(r),0);
+/* aba Produtos, coluna por coluna: G custo da unidade, H tempo e contas, I custo completo, J mínimo, K sugerido… */
+function calcProd(p){
+  const pl=PL(),tx=nn(pl.taxas),pe=nn(pl.perdas),lu=nn(pl.lucro);
+  const receita=custoReceita(p.id),paga=nn(p.paga),rende=nn(p.rende);
+  let fonte=null,G=null;
+  if(paga>0){fonte='pronto';G=paga*(1+pe)}
+  else if(receita>0){if(rende>0){fonte='receita';G=receita*(1+pe)/rende}}
+  else if(nn(p.custo)>0){fonte='app';G=nn(p.custo)}
+  const H=G==null?null:fonte==='receita'?nn(p.horas)*valorHora()/rende:0;
+  const I=G==null?null:G+H,J=I==null||tx>=1?null:I/(1-tx);
+  let K=null;if(I!=null&&tx+lu<1){const x=I/(1-tx-lu);K=x<3?Math.ceil(x*10-1e-9)/10:Math.ceil(x*2-1e-9)/2}
+  const L=nn(p.preco),M=I==null||!L?null:L-I-L*tx,N=M==null?null:M/L;
+  const sit=!fonte&&!receita?'Falta a receita ou o custo':G==null?'Falta o rendimento':!L?'Falta o seu preço':L<G/(1-tx)?'Prejuízo':J!=null&&L<J-0.005?'Não paga o seu tempo':K!=null&&L<K-0.005?'Abaixo do sugerido':'Preço bom';
+  return{fonte,receita,G,H,I,J,K,L,M,N,sit,sobra:G==null||!L?null:(L-G)/L-tx};
+}
+const sitCls=s=>s==='Preço bom'?'good':s==='Prejuízo'?'bad':s.startsWith('Falta')?'neutra':'warn';
+/* o custo calculado aqui vai para o produto do app (só quando a planilha sabe calcular) */
+function aplicarPlanilha(){for(const p of S.produtos){const c=calcProd(p);if(c.fonte==='pronto'||c.fonte==='receita')p.custo=Math.round(c.G*10000)/10000}}
+/* Resumo da planilha: mes 'AAAA-MM' ou null para desde o começo */
+function contasMes(mes){
+  let vend=0,rec=0,custo=0;
+  for(const l of S.lanc){if(mes&&!String(l.data).startsWith(mes))continue;if(l.tipo==='venda'){vend+=l.valor;custo+=l.custo||0}else if(l.tipo==='ajuste')vend+=l.valor;else rec+=l.valor}
+  const taxas=vend*nn(PL().taxas);
+  return{vend,rec,custo,taxas,sobrou:vend-custo-taxas};
+}
+function meta(mes){
+  const pl=PL(),m=contasMes(mes);let sobra;
+  if(m.vend>0)sobra=(m.vend-m.custo)/m.vend-nn(pl.taxas);
+  else{const xs=S.produtos.map(p=>calcProd(p).sobra).filter(x=>x!=null);sobra=xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:0}
+  const precisa=contasFixas()+nn(pl.salario),vender=sobra>0&&precisa>0?precisa/sobra:null;
+  const comLucro=sobra-nn(pl.lucro)>0&&precisa>0?precisa/(sobra-nn(pl.lucro)):null;
+  return{sobra,precisa,vender,comLucro,vend:m.vend};
+}
+/* nome de cada cliente na planilha (que liga as abas pelo nome): dois "Pedro" viram "Pedro (5º ano)" */
+function rotulosClientes(){
+  const cont={};for(const c of S.clientes){const k=norm(c.nome);cont[k]=(cont[k]||0)+1}
+  const m=new Map(),usados=new Set();
+  for(const c of S.clientes.slice().sort(porNome)){
+    let r=String(c.nome).trim()||'Sem nome';if(cont[norm(c.nome)]>1&&c.obs)r+=` (${c.obs})`;
+    let k=r,n=2;while(usados.has(norm(k)))k=`${r} ${n++}`;usados.add(norm(k));m.set(c.id,k);
+  }
+  return m;
+}
+const MOTIVO={presente:'Presente',erro:'Correção'};
+
+const ABAS=[['resumo','Resumo'],['vendas','Vendas'],['recebi','Recebi'],['acertos','Acertos'],['clientes','Clientes'],['produtos','Produtos'],['receitas','Receitas'],['materiais','Materiais'],['mes','Meu Mês']];
+function vPlanilha(){
+  const a=ui.aba;
+  const corpo=a==='vendas'?pVendas():a==='recebi'?pRecebi():a==='acertos'?pAcertos():a==='clientes'?pClientes():a==='produtos'?pProdutos():a==='receitas'?pReceitas():a==='materiais'?pMateriais():a==='mes'?pMes():pResumo();
+  return `<button class="back" data-act="ir" data-v="resumo">← Resumo</button>
+  <div><h1>Planilha</h1><p class="muted small" style="margin:4px 0 0">Custos, preços e as contas do mês, com os mesmos dados do app: o que você anota aparece aqui, e o custo calculado aqui vai para os produtos.</p></div>
+  <div class="abas">${ABAS.map(([k,n])=>`<button class="chip" data-act="aba" data-v="${k}" aria-pressed="${k===a}">${n}</button>`).join('')}</div>
+  ${corpo}
+  <h2>No Excel ou no Google Planilhas</h2>
+  <div class="card kvs"><p class="muted small" style="margin:0">Baixe a planilha completa, com tudo o que está no app. Se mexer nela, traga de volta: o que for novo entra no app. Se abrir no Google Planilhas, baixe como Excel (.xlsx) antes de trazer.</p>
+    <button class="btn ghost" data-act="baixarPlanilha">${IC.baixar}Baixar planilha</button>
+    <label class="btn ghost filebtn">${IC.trazer}Trazer planilha editada<input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" id="planArq"></label></div>`;
+}
+const mesBar=()=>`<div class="mesbar"><button class="x" data-act="mes" data-v="-1" aria-label="Mês anterior">‹</button><b>${nomeMes(ui.mes)}</b><button class="x" data-act="mes" data-v="1" aria-label="Próximo mês">›</button></div>`;
+const tabela=(cab,linhas,rodape='')=>`<div class="tabela-wrap"><table class="tabela"><thead><tr>${cab.map(([t,n])=>`<th class="${n?'num':''}">${t}</th>`).join('')}</tr></thead><tbody>${linhas.join('')}</tbody>${rodape}</table></div>`;
+const vazio=t=>`<div class="card muted">${t}</div>`;
+
+function pResumo(){
+  const pl=PL(),mes=contasMes(ui.mes),tudo=contasMes(null),mt=meta(ui.mes);
+  let falta=0,dev=0;for(const c of S.clientes){const d=saldo(c.id).deve;if(d>0.005){falta+=d;dev++}}
+  const cf=contasFixas(),sal=nn(pl.salario),ficou=mes.sobrou-cf;
+  const [msg,tom]=mes.vend===0?['Ainda não tem vendas neste mês.','neutra']:ficou>=sal?[`Bateu o seu salário! E ainda sobrou ${brl(ficou-sal)} de lucro.`,'good']:ficou>0?[`Faltam ${brl(sal-ficou)} para chegar no seu salário.`,'neutra']:['As vendas ainda não pagaram as contas fixas do mês.','bad'];
+  const linha=(rot,a,b,cls='')=>`<tr><th>${rot}</th><td class="num ${cls}">${brl(a)}</td><td class="num ${cls}">${brl(b)}</td></tr>`;
+  const pp=new Map();
+  for(const l of S.lanc){if(l.tipo!=='venda'||!String(l.data).startsWith(ui.mes))continue;
+    for(const i of l.itens){const k=i.produtoId||'_',p=prod(i.produtoId),x=pp.get(k)||{nome:i.produtoId?(p?p.nome:i.nome):'Valores digitados',u:0,v:0,s:0};
+      x.u+=i.qtd;x.v+=i.preco*i.qtd;x.s+=(i.preco-(i.custo||0))*i.qtd;pp.set(k,x)}}
+  const passos=[['mes','Meu Mês','Suas contas fixas, quanto precisa para viver e quantas horas trabalha.'],['materiais','Materiais','Se você prepara o que vende: o que compra para isso, com o preço.'],['produtos','Produtos','Se prepara ou compra pronto, e quanto cobra.'],['receitas','Receitas','Só para o que prepara: o que vai e quanto vai.']];
+  return `${!cf&&!sal?`<div class="card"><b>Na primeira vez, preencha nesta ordem:</b><div class="steps">${passos.map(([k,n,t],i)=>`<button class="passo" data-act="aba" data-v="${k}"><i>${i+1}</i><span><b>${n}</b><br><span class="muted small">${t}</span></span></button>`).join('')}</div></div>`:''}
+  ${mesBar()}
+  <section class="card hero"><div class="lbl">Dinheiro na rua</div><div class="big num ${falta>0?'c-bad':''}">${brl(falta)}</div><div class="muted small">Falta receber de todo mundo · ${dev} devendo</div></section>
+  <h2>Vendas</h2>
+  ${tabela([['',0],['Neste mês',1],['Desde o começo',1]],[linha('Vendi',mes.vend,tudo.vend),linha('Já recebi',mes.rec,tudo.rec,'c-good'),linha('Gastei com materiais e mercadoria',mes.custo,tudo.custo),linha('Taxas (maquininha, app)',mes.taxas,tudo.taxas),linha('Sobrou das vendas',mes.sobrou,tudo.sobrou)])}
+  <h2>O mês pagou as contas e o seu salário?</h2>
+  <div class="card kvs">${kv('Contas fixas do mês',brl(cf))}${kv('Ficou para mim',brl(ficou),ficou<0?'c-bad':'')}${kv('Meu salário',brl(sal))}<p class="aviso ${tom}">${msg}</p></div>
+  <h2>Meta do mês</h2>
+  <div class="card kvs">${kv('De cada R$ 1,00 que vendo, sobra',pct(mt.sobra))}${kv('Para pagar contas + salário, preciso vender',bv(mt.vender))}${kv(`Para ter também ${pct(nn(pl.lucro))} de lucro, preciso vender`,bv(mt.comLucro))}
+    ${mt.vender?`<div class="barra"><span style="width:${Math.min(100,mt.vend/mt.vender*100)}%"></span></div><div class="small muted">Já vendi ${pct(mt.vend/mt.vender)} da meta. ${mt.vend>=mt.vender?'Meta batida!':`Faltam ${brl(mt.vender-mt.vend)} em vendas.`}</div>`
+      :`<p class="small muted" style="margin:0">${mt.precisa>0?'Com os preços de hoje não sobra nada das vendas. Veja a aba Produtos.':'Preencha o Meu Mês para ver a sua meta.'}</p>`}</div>
+  <h2>Por produto, neste mês</h2>
+  ${pp.size?tabela([['Produto',0],['Unidades',1],['Vendi',1],['Sobrou',1]],[...pp.values()].sort((a,b)=>b.v-a.v).map(x=>`<tr><th>${esc(x.nome)}</th><td class="num">${x.u}</td><td class="num">${brl(x.v)}</td><td class="num">${brl(x.s)}</td></tr>`)):vazio('Nenhuma venda neste mês.')}`;
+}
+
+function pVendas(){
+  const rot=rotulosClientes(),ls=S.lanc.filter(l=>l.tipo==='venda'&&String(l.data).startsWith(ui.mes)).sort(porData);
+  let t=0,cu=0;const linhas=[];
+  for(const l of ls){const pg=pagNaHora(l)?'Sim':'';for(const i of l.itens){const tot=i.preco*i.qtd,c=(i.custo||0)*i.qtd;t+=tot;cu+=c;
+    linhas.push(`<tr data-act="abrirCli" data-id="${l.clienteId}"><td>${fmtCurta(l.data)}</td><td>${esc(rot.get(l.clienteId)||'?')}</td><td>${esc(i.nome)}</td><td class="num">${i.qtd}</td><td class="num">${brl(i.preco)}</td><td class="num">${brl(tot)}</td><td class="num">${brl(c)}</td><td class="num">${brl(tot-c)}</td><td>${pg}</td></tr>`)}}
+  return `${mesBar()}<p class="muted small" style="margin:0">Quem pegou o quê, uma linha por produto. Para anotar, use “Anotar venda”; para corrigir, toque na linha e depois na venda.</p>
+  ${linhas.length?tabela([['Data',0],['Cliente',0],['Produto',0],['Quantas',1],['Preço',1],['Total',1],['Custo',1],['Sobrou',1],['Pagou na hora?',0]],linhas,`<tfoot><tr><th colspan="5">Total do mês</th><td class="num">${brl(t)}</td><td class="num">${brl(cu)}</td><td class="num">${brl(t-cu)}</td><td></td></tr></tfoot>`):vazio(`Nenhuma venda em ${nomeMes(ui.mes)}.`)}`;
+}
+function pRecebi(){
+  const rot=rotulosClientes(),ls=S.lanc.filter(l=>l.tipo==='pag'&&String(l.data).startsWith(ui.mes)).sort(porData);
+  const t=ls.reduce((a,l)=>a+l.valor,0);
+  return `${mesBar()}<p class="muted small" style="margin:0">Cada vez que alguém te pagou. Para anotar, use “Recebi” na página do cliente.</p>
+  ${ls.length?tabela([['Data',0],['Cliente',0],['Quanto',1],['Como pagou',0],['Observação',0]],ls.map(l=>`<tr data-act="abrirCli" data-id="${l.clienteId}"><td>${fmtCurta(l.data)}</td><td>${esc(rot.get(l.clienteId)||'?')}</td><td class="num c-good">${brl(l.valor)}</td><td>${esc(l.forma||'')}</td><td>${esc(l.obs||'')}</td></tr>`),`<tfoot><tr><th colspan="2">Total do mês</th><td class="num">${brl(t)}</td><td colspan="2"></td></tr></tfoot>`):vazio(`Nenhum pagamento em ${nomeMes(ui.mes)}.`)}`;
+}
+function pAcertos(){
+  const rot=rotulosClientes(),ls=S.lanc.filter(l=>l.tipo==='ajuste'&&String(l.data).startsWith(ui.mes)).sort(porData);
+  return `${mesBar()}<p class="muted small" style="margin:0">Presentes, descontos e correções do valor que alguém deve. Com menos (−) diminuiu o que a pessoa deve. Para fazer um, use “Mudar o valor que deve” na página do cliente.</p>
+  ${ls.length?tabela([['Data',0],['Cliente',0],['Valor',1],['Motivo',0],['Observação',0]],ls.map(l=>`<tr data-act="abrirCli" data-id="${l.clienteId}"><td>${fmtCurta(l.data)}</td><td>${esc(rot.get(l.clienteId)||'?')}</td><td class="num ${l.valor<0?'c-good':'c-bad'}">${brl(l.valor)}</td><td>${MOTIVO[l.motivo]||'Correção'}</td><td>${esc(l.obs||'')}</td></tr>`)):vazio(`Nenhum acerto em ${nomeMes(ui.mes)}.`)}`;
+}
+function pClientes(){
+  const rot=rotulosClientes();
+  const ls=S.clientes.slice().sort(porNome).map(c=>{const s=saldo(c.id),ult=S.lanc.filter(l=>l.tipo==='venda'&&l.clienteId===c.id).reduce((m,l)=>l.data>m?l.data:m,'');
+    const sit=s.deve>0.005?'Deve':s.deve<-0.005?'Tem crédito':s.vendido>0?'Em dia':'Ainda não comprou';
+    return `<tr data-act="abrirCli" data-id="${c.id}"><th>${esc(rot.get(c.id))}</th><td>${esc(c.tel||'')}</td><td>${esc(c.obs||'')}</td><td class="num">${brl(s.vendido)}</td><td class="num">${brl(s.pago)}</td><td class="num">${brl(s.ajuste)}</td><td class="num ${s.deve>0.005?'c-bad':''}">${brl(s.deve)}</td><td>${fmtCurta(ult)}</td><td>${sit}</td></tr>`});
+  return `<p class="muted small" style="margin:0">Quanto cada pessoa pegou, pagou e ainda deve, desde o começo. Toque numa linha para abrir a pessoa no app.</p>
+  ${ls.length?tabela([['Nome',0],['WhatsApp',0],['Observação',0],['Já pegou',1],['Já pagou',1],['Descontos e acertos',1],['Está devendo',1],['Última compra',0],['Situação',0]],ls):vazio('Ainda não tem clientes.')}`;
+}
+function pProdutos(){
+  const ps=S.produtos.slice().sort((a,b)=>(b.ativo-a.ativo)||porNome(a,b));
+  return `<p class="muted small" style="margin:0">Toque num produto para dizer se você prepara ou compra pronto. A planilha calcula o custo, o preço mínimo e o preço sugerido, e o custo vai sozinho para o produto no app.</p>
+  ${ps.length?`<div class="list">${ps.map(p=>{const c=calcProd(p);return `<button class="item" data-act="planProd" data-id="${p.id}"><span class="grow"><span class="name">${esc(p.nome)}${p.ativo?'':' <span class="muted small">(não vendo mais)</span>'}</span><span class="sub num">Custo ${bv(c.I)} · Sugerido ${bv(c.K)} · Cobro ${c.L?brl(c.L):'—'}</span><span class="pill ${sitCls(c.sit)}" style="margin-top:6px">${c.sit}</span></span>${IC.chev}</button>`}).join('')}</div>`:vazio('Ainda não tem produtos.')}
+  <button class="btn ghost" data-act="novoProduto">${IC.plus}Novo produto</button>`;
+}
+function pReceitas(){
+  const ps=S.produtos.filter(p=>!(nn(p.paga)>0)).sort(porNome);
+  return `<p class="muted small" style="margin:0">Só para o que você prepara: o que vai em cada produto e quanto vai, com as embalagens. O custo por unidade aparece em Produtos.</p>
+  ${ps.length?ps.map(p=>{const ls=linhasReceita(p.id);return `<div class="card kvs"><div class="row" style="align-items:center"><div class="grow"><b>${esc(p.nome)}</b><div class="small muted num">${ls.length?`${brl(custoReceita(p.id))} de materiais · rende ${p.rende?numStr(p.rende):'?'}`:'Ainda sem receita'}</div></div><button class="btn ghost sm" data-act="editReceita" data-id="${p.id}">${ls.length?'Editar':'Montar'}</button></div>
+    ${ls.length?tabela([['O que vai',0],['Quanto vai',1],['Custo',1]],ls.map(r=>{const m=mat(r.materialId);return `<tr><td>${esc(m?m.nome:'?')}</td><td class="num">${numStr(r.qtd)} ${m?esc(m.medida):''}</td><td class="num">${brl(custoLinha(r))}</td></tr>`})):''}</div>`}).join(''):vazio('Cadastre os produtos que você prepara em “Produtos”.')}`;
+}
+function pMateriais(){
+  const ms=PL().materiais.slice().sort(porNome);
+  return `<p class="muted small" style="margin:0">Tudo que você compra para preparar o que vende: ingredientes, embalagens, materiais. Quilo vira gramas (1 kg = 1000 g) e litro vira ml.</p>
+  ${ms.length?`<div class="list">${ms.map(m=>`<button class="item" data-act="editMat" data-id="${m.id}"><span class="grow"><span class="name">${esc(m.nome)}</span><span class="sub num">${esc(m.tipo||'')} · ${numStr(m.qtd)} ${esc(m.medida)} por ${brl(m.preco)}${m.onde?' · '+esc(m.onde):''}${m.data?' · '+fmtCurta(m.data):''}</span></span><span class="val">${bv(saiPor(m))}<span class="sub" style="text-align:right">${porMedida(m)}</span></span></button>`).join('')}</div>`:vazio('Nenhum material ainda.')}
+  <button class="btn ghost" data-act="editMat">${IC.plus}Novo material</button>`;
+}
+function pMes(){
+  const pl=PL(),cf=contasFixas(),sal=nn(pl.salario),mt=meta(hoje().slice(0,7));
+  return `<p class="muted small" style="margin:0">Quanto custa manter o seu negócio e quanto você precisa ganhar. Preencha uma vez e mude quando algo mudar.</p>
+  <h2>1. Contas fixas do mês</h2>
+  <div class="list">${pl.contas.map(c=>`<button class="item" data-act="editConta" data-id="${c.id}"><span class="grow"><span class="name">${esc(c.nome)}</span>${c.obs?`<span class="sub">${esc(c.obs)}</span>`:''}</span><span class="val ${nn(c.valor)>0?'':'muted'}">${brl(c.valor)}</span></button>`).join('')}
+    <div class="item"><span class="grow name">Total das contas fixas</span><span class="val">${brl(cf)}</span></div></div>
+  <button class="btn ghost" data-act="editConta">${IC.plus}Pôr outra conta</button>
+  <h2>2. Você e o seu tempo</h2>
+  <button class="card kvs" data-act="editTempo">${kv('Quanto preciso para viver por mês (meu salário)',brl(sal))}${kv('Dias que trabalho no mês',numStr(pl.dias)||'0')}${kv('Horas por dia',numStr(pl.horasDia)||'0')}${kv('Horas no mês',numStr(horasMes())||'0')}${kv('Quanto vale a minha hora',brl(valorHora()))}<span class="c-accent small" style="font-weight:600">Mudar</span></button>
+  <h2>3. Porcentagens</h2>
+  <button class="card kvs" data-act="editPct">${kv('Taxas sobre a venda (maquininha, app)',pct(nn(pl.taxas)))}${kv('Perdas (o que estraga, quebra ou vira brinde)',pct(nn(pl.perdas)))}${kv('Lucro que eu quero, além do salário',pct(nn(pl.lucro)))}<span class="c-accent small" style="font-weight:600">Mudar</span></button>
+  <h2>Resultado</h2>
+  <div class="card kvs">${kv('Preciso ganhar por mês (contas + meu salário)',brl(cf+sal))}${kv('Para isso, preciso vender por mês mais ou menos',bv(mt.vender))}</div>`;
+}
+
+/* janelas da planilha */
+const escolhas={};
+const chipsEscolha=(g,ops,atual)=>{escolhas[g]=atual;return `<div class="chips">${ops.map(o=>`<button class="chip" data-act="escolha" data-g="${g}" data-v="${esc(o)}" aria-pressed="${o===atual}">${esc(o)}</button>`).join('')}</div>`};
+function formPlanProd(p){
+  const c=calcProd(p),n=linhasReceita(p.id).length,modo=nn(p.paga)>0||(!n&&!nn(p.rende)&&c.fonte==='app')?'Compro pronto':'Eu preparo';
+  abrir(`<h1>${esc(p.nome)}</h1>
+  <div class="field"><label>Como você tem esse produto?</label>${chipsEscolha('modo',['Eu preparo','Compro pronto'],modo)}</div>
+  <div class="field" id="grpPronto" ${modo==='Compro pronto'?'':'hidden'}><label for="ppPaga">Quanto pago por unidade</label><div class="money"><span>R$</span><input class="input" id="ppPaga" inputmode="decimal" value="${nn(p.paga)>0?moneyStr(p.paga):c.fonte==='app'?moneyStr(p.custo):''}" placeholder="0,00"></div></div>
+  <div class="kvs" id="grpPreparo" ${modo==='Eu preparo'?'':'hidden'}>
+    <div class="row"><div class="field"><label for="ppRende">A receita rende (unidades)</label><input class="input" id="ppRende" inputmode="decimal" value="${numStr(p.rende)}" placeholder="Ex.: 12"></div>
+    <div class="field"><label for="ppHoras">Tempo para fazer (horas)</label><input class="input" id="ppHoras" inputmode="decimal" value="${numStr(p.horas)}" placeholder="Ex.: 1,5"></div></div>
+    <button class="btn ghost" data-act="editReceita" data-id="${p.id}">${IC.pen}${n?`Receita: ${n} ${n===1?'material':'materiais'}, ${brl(c.receita)}`:'Montar a receita'}</button></div>
+  <div class="field"><label for="ppPreco">Preço que eu cobro</label><div class="money"><span>R$</span><input class="input" id="ppPreco" inputmode="decimal" value="${p.preco?moneyStr(p.preco):''}" placeholder="0,00"></div></div>
+  <div class="card kvs">${kv('Custo por unidade (materiais e perdas)',bv(c.G))}${kv('Seu tempo e contas por unidade',bv(c.H))}${kv('Custo completo por unidade',bv(c.I))}${kv('Preço mínimo (sem prejuízo)',bv(c.J))}${kv('Preço sugerido',bv(c.K),'c-accent')}${kv('Lucro por unidade',bv(c.M),c.M<0?'c-bad':'')}${kv('Margem de lucro',pct(c.N))}
+    <span class="pill ${sitCls(c.sit)}" style="align-self:flex-start">${c.sit}</span>${c.fonte==='app'?'<span class="muted small">Usando o custo que você escreveu no app. Diga acima se prepara ou compra pronto para a planilha calcular.</span>':''}</div>
+  ${c.K!=null&&Math.abs(c.K-c.L)>0.004?`<button class="btn soft" data-act="usarSugerido" data-id="${p.id}">Cobrar o preço sugerido (${brl(c.K)})</button>`:''}
+  <button class="btn" data-act="salvarPlanProd" data-id="${p.id}">Salvar e recalcular</button>
+  <button class="btn ghost" data-act="fechar">Fechar</button>`)}
+function lerPlanProd(p){
+  const pronto=escolhas.modo==='Compro pronto',pr=lerNum($('#ppPreco').value);
+  if(pronto){p.paga=lerNum($('#ppPaga').value)}else{p.paga=0;p.rende=lerNum($('#ppRende').value);p.horas=lerNum($('#ppHoras').value)}
+  if(pr>0)p.preco=pr;aplicarPlanilha();salvar();
+}
+let rec=null;// receita em edição (cópia; só vale ao salvar)
+function formReceita(){
+  const p=prod(rec.pid),ms=PL().materiais.slice().sort(porNome);
+  if(!ms.length){abrir(`<h1>Receita de ${esc(p.nome)}</h1><p class="muted" style="margin:0">Para montar a receita, cadastre antes os materiais que você compra (ingredientes, embalagens), com o tamanho do pacote e o preço.</p><button class="btn" data-act="aba" data-v="materiais">Ir para Materiais</button><button class="btn ghost" data-act="fechar">Fechar</button>`);return}
+  const total=rec.linhas.reduce((t,r)=>t+custoLinha(r),0);
+  abrir(`<h1>Receita de ${esc(p.nome)}</h1><p class="muted small" style="margin:0">O que vai e quanto vai, com as embalagens. Quilo em gramas e litro em ml.</p>
+  ${rec.linhas.length?`<div class="list">${rec.linhas.map((r,k)=>{const m=mat(r.materialId);return `<div class="item"><div class="grow kvs"><select class="input recmat" data-v="${k}" aria-label="Material">${ms.map(x=>`<option value="${x.id}" ${x.id===r.materialId?'selected':''}>${esc(x.nome)}</option>`).join('')}</select>
+    <div class="row" style="align-items:center"><input class="input recqtd" data-v="${k}" inputmode="decimal" value="${numStr(r.qtd)}" placeholder="Quanto vai" aria-label="Quanto vai"><span class="muted" id="recMed${k}" style="flex:none;width:30px">${m?esc(m.medida):''}</span><b class="num" id="recCus${k}" style="flex:none;min-width:80px;text-align:right">${brl(custoLinha(r))}</b></div></div>
+    <button class="x" data-act="recTirar" data-v="${k}" aria-label="Tirar da receita">${IC.x}</button></div>`}).join('')}</div>`:''}
+  <button class="btn ghost" data-act="recMais">${IC.plus}Pôr material</button>
+  <div class="row" style="align-items:baseline"><span class="lbl" style="flex:none">Materiais da receita</span><b class="mid num" id="recTotal" style="text-align:right">${brl(total)}</b></div>
+  <button class="btn" data-act="salvarReceita">Salvar receita</button>
+  <button class="btn ghost" data-act="voltarReceita">Cancelar</button>`)}
+function abrirReceita(pid,origem){rec={pid,origem,linhas:linhasReceita(pid).map(r=>({materialId:r.materialId,qtd:r.qtd,obs:r.obs||''}))};if(!rec.linhas.length&&PL().materiais.length)rec.linhas.push({materialId:PL().materiais.slice().sort(porNome)[0].id,qtd:0,obs:''});formReceita()}
+function formMaterial(m){
+  abrir(`<h1>${m?'Editar material':'Novo material'}</h1>
+  <div class="field"><label for="mNome">O que é</label><input class="input" id="mNome" value="${esc(m?.nome)}" placeholder="Ex.: Leite condensado, Pote 250 ml" autocomplete="off"></div>
+  <div class="field"><label>Tipo</label>${chipsEscolha('tipo',['Ingrediente','Embalagem','Material','Outro'],m?.tipo||'Ingrediente')}</div>
+  <div class="field"><label>Medida</label>${chipsEscolha('medida',['g','ml','un'],m?.medida||'g')}<span class="muted small">Gramas, ml ou unidade (ovos, potes, peças).</span></div>
+  <div class="row"><div class="field"><label for="mQtd">Quanto vem no pacote</label><input class="input" id="mQtd" inputmode="decimal" value="${numStr(m?.qtd)}" placeholder="Ex.: 395"></div>
+  <div class="field"><label for="mPreco">Quanto paguei</label><div class="money"><span>R$</span><input class="input" id="mPreco" inputmode="decimal" value="${m?moneyStr(m.preco):''}" placeholder="0,00"></div></div></div>
+  <div class="field"><label for="mOnde">Onde comprei <span class="opt">(se quiser)</span></label><input class="input" id="mOnde" value="${esc(m?.onde)}" placeholder="Ex.: Mercado, Atacado" autocomplete="off"></div>
+  <button class="btn" data-act="salvarMat" data-id="${m?.id||''}">Salvar</button>
+  ${m?`<button class="btn danger" data-act="apagarMat" data-id="${m.id}">Apagar material</button>`:''}
+  <button class="btn ghost" data-act="fechar">Cancelar</button>`)}
+function formConta(c){
+  abrir(`<h1>${c?'Conta fixa':'Nova conta fixa'}</h1>
+  <div class="field"><label for="cNome">Conta</label><input class="input" id="cNome" value="${esc(c?.nome)}" placeholder="Ex.: Gás" autocomplete="off"></div>
+  <div class="field"><label for="cValor">Valor por mês</label><div class="money"><span>R$</span><input class="input" id="cValor" inputmode="decimal" value="${c&&nn(c.valor)?moneyStr(c.valor):''}" placeholder="0,00" ${c?'autofocus':''}></div></div>
+  <div class="field"><label for="cObs">Observação <span class="opt">(se quiser)</span></label><input class="input" id="cObs" value="${esc(c?.obs)}" autocomplete="off"></div>
+  <button class="btn" data-act="salvarConta" data-id="${c?.id||''}">Salvar</button>
+  ${c?`<button class="btn danger" data-act="apagarConta" data-id="${c.id}">Tirar esta conta</button>`:''}
+  <button class="btn ghost" data-act="fechar">Cancelar</button>`)}
+function formTempo(){const pl=PL();
+  abrir(`<h1>Você e o seu tempo</h1>
+  <div class="field"><label for="tSal">Quanto preciso para viver por mês (meu salário)</label><div class="money"><span>R$</span><input class="input" id="tSal" inputmode="decimal" value="${nn(pl.salario)?moneyStr(pl.salario):''}" placeholder="0,00"></div><span class="muted small">O que você quer tirar para você, todo mês, para pagar as suas contas de casa.</span></div>
+  <div class="row"><div class="field"><label for="tDias">Dias que trabalho no mês</label><input class="input" id="tDias" inputmode="decimal" value="${numStr(pl.dias)}"></div>
+  <div class="field"><label for="tHoras">Horas por dia</label><input class="input" id="tHoras" inputmode="decimal" value="${numStr(pl.horasDia)}"></div></div>
+  <span class="muted small">Contando comprar, preparar, atender, entregar e cobrar.</span>
+  <button class="btn" data-act="salvarTempo">Salvar</button><button class="btn ghost" data-act="fechar">Cancelar</button>`)}
+function formPct(){const pl=PL(),v=x=>numStr(r2(nn(x)*100));
+  abrir(`<h1>Porcentagens</h1>
+  <div class="field"><label for="xTaxas">Taxas sobre a venda (%)</label><input class="input" id="xTaxas" inputmode="decimal" value="${v(pl.taxas)}"><span class="muted small">Maquininha, app de entrega. Se só uma parte paga no cartão, use uma média.</span></div>
+  <div class="field"><label for="xPerdas">Perdas (%)</label><input class="input" id="xPerdas" inputmode="decimal" value="${v(pl.perdas)}"><span class="muted small">O que estraga, quebra, vence ou vira brinde.</span></div>
+  <div class="field"><label for="xLucro">Lucro que eu quero (%)</label><input class="input" id="xLucro" inputmode="decimal" value="${v(pl.lucro)}"><span class="muted small">Além do seu salário: para guardar, comprar equipamento e crescer.</span></div>
+  <button class="btn" data-act="salvarPct">Salvar</button><button class="btn ghost" data-act="fechar">Cancelar</button>`)}
+
+/* ---------- planilha de verdade (.xlsx) ----------
+   Um .xlsx é um zip de XMLs. Baixar: abre app/planilha-modelo.xlsx, escreve os dados do app nas células de
+   preencher (as fórmulas ficam) e pede para o Excel recalcular ao abrir. Trazer: lê as mesmas células.
+   Linhas que vieram do app levam um código numa coluna escondida; só entra no app o que não tem código. */
+const NSX='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+const passar=async(u,fluxo)=>new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(fluxo)).arrayBuffer());
+async function lerZip(buf){
+  const u=new Uint8Array(buf),dv=new DataView(buf),td=new TextDecoder(),out=new Map();
+  let e=u.length-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;
+  if(e<0)throw new Error('não é zip');
+  let p=dv.getUint32(e+16,true);const n=dv.getUint16(e+10,true);
+  for(let i=0;i<n;i++){
+    const met=dv.getUint16(p+10,true),tam=dv.getUint32(p+20,true),ln=dv.getUint16(p+28,true),lx=dv.getUint16(p+30,true),lc=dv.getUint16(p+32,true),off=dv.getUint32(p+42,true);
+    const nome=td.decode(u.subarray(p+46,p+46+ln)),ini=off+30+dv.getUint16(off+26,true)+dv.getUint16(off+28,true),dado=u.slice(ini,ini+tam);
+    out.set(nome,met===0?dado:await passar(dado,new DecompressionStream('deflate-raw')));
+    p+=46+ln+lx+lc;
+  }
+  return out;
+}
+async function fazerZip(arqs){
+  const partes=[],central=[],te=new TextEncoder();let off=0;
+  for(const[nome,dado] of arqs){
+    const nb=te.encode(nome),crc=crc32(dado);let z=dado,met=0;
+    if(typeof CompressionStream!=='undefined'){try{z=await passar(dado,new CompressionStream('deflate-raw'));met=8}catch(err){z=dado;met=0}}
+    const h=new DataView(new ArrayBuffer(30));[[0,0x04034b50,4],[4,20,2],[6,0x0800,2],[8,met,2],[12,33,2],[14,crc,4],[18,z.length,4],[22,dado.length,4],[26,nb.length,2]].forEach(([o,v,t])=>t===4?h.setUint32(o,v,true):h.setUint16(o,v,true));
+    const c=new DataView(new ArrayBuffer(46));[[0,0x02014b50,4],[4,20,2],[6,20,2],[8,0x0800,2],[10,met,2],[14,33,2],[16,crc,4],[20,z.length,4],[24,dado.length,4],[28,nb.length,2],[42,off,4]].forEach(([o,v,t])=>t===4?c.setUint32(o,v,true):c.setUint16(o,v,true));
+    partes.push(new Uint8Array(h.buffer),nb,z);central.push(new Uint8Array(c.buffer),nb);off+=30+nb.length+z.length;
+  }
+  const tc=central.reduce((t,x)=>t+x.length,0),f=new DataView(new ArrayBuffer(22));
+  f.setUint32(0,0x06054b50,true);f.setUint16(8,arqs.length,true);f.setUint16(10,arqs.length,true);f.setUint32(12,tc,true);f.setUint32(16,off,true);
+  return new Blob([...partes,...central,new Uint8Array(f.buffer)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+/* aba (nome) → arquivo dentro do zip, e as palavras guardadas à parte (sharedStrings) */
+function abasDoZip(zip){
+  const td=new TextDecoder(),dp=new DOMParser(),wb=dp.parseFromString(td.decode(zip.get('xl/workbook.xml')),'application/xml');
+  const rels=dp.parseFromString(td.decode(zip.get('xl/_rels/workbook.xml.rels')),'application/xml'),alvo={};
+  for(const r of rels.getElementsByTagName('Relationship')){const t=r.getAttribute('Target');alvo[r.getAttribute('Id')]=t.startsWith('/')?t.slice(1):'xl/'+t}
+  const ab={};for(const s of wb.getElementsByTagNameNS(NSX,'sheet'))ab[s.getAttribute('name')]=alvo[s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id')];
+  return ab;
+}
+function lerSST(zip){const x=zip.get('xl/sharedStrings.xml');if(!x)return [];
+  const d=new DOMParser().parseFromString(new TextDecoder().decode(x),'application/xml');
+  return [...d.getElementsByTagNameNS(NSX,'si')].map(si=>[...si.getElementsByTagNameNS(NSX,'t')].filter(t=>t.parentNode.localName!=='rPh').map(t=>t.textContent).join(''))}
+function folha(xml,sst){
+  const doc=new DOMParser().parseFromString(xml,'application/xml'),sd=doc.getElementsByTagNameNS(NSX,'sheetData')[0],el=n=>doc.createElementNS(NSX,n);
+  const linhas=new Map();for(const r of sd.getElementsByTagNameNS(NSX,'row'))linhas.set(+r.getAttribute('r'),r);
+  const coluna=ref=>ref.replace(/\d+/g,'').split('').reduce((t,ch)=>t*26+ch.charCodeAt(0)-64,0);
+  function cel(ref,criar){
+    const n=+ref.replace(/\D+/g,'');let r=linhas.get(n);
+    if(!r){if(!criar)return null;r=el('row');r.setAttribute('r',n);let dep=null;for(const[k,x] of linhas)if(k>n&&(!dep||k<+dep.getAttribute('r')))dep=x;sd.insertBefore(r,dep);linhas.set(n,r)}
+    for(const c of r.children)if(c.getAttribute('r')===ref)return c;
+    if(!criar)return null;
+    const c=el('c'),cn=coluna(ref);c.setAttribute('r',ref);let antes=null;for(const x of r.children)if(coluna(x.getAttribute('r'))>cn){antes=x;break}
+    r.insertBefore(c,antes);return c;
+  }
+  return{
+    por(ref,v){const vazio=v===''||v==null,c=cel(ref,!vazio);if(!c)return;while(c.firstChild)c.removeChild(c.firstChild);c.removeAttribute('t');if(vazio)return;
+      if(typeof v==='number'){c.setAttribute('t','n');const x=el('v');x.textContent=String(v);c.appendChild(x)}
+      else{c.setAttribute('t','inlineStr');const is=el('is'),t=el('t');t.setAttribute('xml:space','preserve');t.textContent=String(v);is.appendChild(t);c.appendChild(is)}},
+    ler(ref){const c=cel(ref,false);if(!c)return '';const t=c.getAttribute('t'),v=c.getElementsByTagNameNS(NSX,'v')[0],vt=v?v.textContent:'';
+      if(t==='s')return sst[+vt]??'';if(t==='inlineStr')return [...c.getElementsByTagNameNS(NSX,'t')].map(x=>x.textContent).join('');
+      if(t==='str'||t==='e')return vt;if(t==='b')return vt==='1';return vt===''?'':+vt},
+    /* acha a linha pelo texto da coluna B (para o Meu Mês, que não é uma lista) */
+    achar(prefixo,de=1,ate=80){for(let r=de;r<=ate;r++)if(norm(this.ler('B'+r)).startsWith(norm(prefixo)))return r;return 0},
+    esconder(n){const cols=doc.getElementsByTagNameNS(NSX,'cols')[0];if(!cols)return;const c=el('col');[['min',n],['max',n],['width','0'],['hidden','true'],['customWidth','true']].forEach(([k,v])=>c.setAttribute(k,v));cols.appendChild(c)},
+    /* fórmulas sem o resultado antigo guardado: o Excel e o Google Planilhas fazem a conta de novo */
+    semCache(){for(const f of [...doc.getElementsByTagNameNS(NSX,'f')]){const c=f.parentNode;c.removeAttribute('t');for(const v of [...c.getElementsByTagNameNS(NSX,'v')])c.removeChild(v)}},
+    xml:()=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+new XMLSerializer().serializeToString(doc).replace(/^<\?xml[^>]*\?>\s*/,'')
+  };
+}
+const serial=d=>{const[a,m,dd]=String(d).split('-').map(Number);return Math.round((Date.UTC(a,m-1,dd)-Date.UTC(1899,11,30))/864e5)};
+function dataDe(x){
+  if(typeof x==='number'&&x>20000){const d=new Date(Date.UTC(1899,11,30)+Math.round(x)*864e5);return d.toISOString().slice(0,10)}
+  const m=String(x).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(m)return (m[3].length===2?'20'+m[3]:m[3])+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(x).trim())?String(x).trim():hoje();
+}
+const PLANILHA_ABAS=['Início','Resumo','Vendas','Recebi','Acertos','Clientes','Produtos','Receitas','Materiais','Meu Mês'];
+function baixarBlob(blob,nome){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000)}
+
+async function baixarPlanilha(){
+  if(typeof DecompressionStream==='undefined'){toast('Este navegador é antigo demais para montar a planilha. Atualize o navegador do celular.',true);return}
+  toast('Montando a planilha…');
+  const zip=await lerZip(await (await fetch('planilha-modelo.xlsx')).arrayBuffer()),ab=abasDoZip(zip),sst=lerSST(zip),td=new TextDecoder(),F={};
+  for(const n of PLANILHA_ABAS)F[n]=folha(td.decode(zip.get(ab[n])),sst);
+  const pl=PL(),rot=rotulosClientes();let cheio=false;
+  const encher=(f,cols,linhas,de,ate)=>{if(linhas.length>ate-de+1)cheio=true;for(let r=de;r<=Math.max(ate,de+linhas.length-1);r++){const o=linhas[r-de]||{};for(const c of cols)f.por(c+r,o[c]??'')}};
+  F['Início'].por('D4',S.ajustes.negocio||'');
+  F['Início'].por('C37',`Preenchida pelo app Caderninho em ${fmtData(hoje())}. O que você escrever aqui volta para o app em Planilha → Trazer planilha editada.`);
+  // Vendas: uma linha por produto; o custo vai como valor (o daquele dia) e não pela fórmula
+  const vendas=[];
+  for(const l of S.lanc.filter(l=>l.tipo==='venda').sort(porData)){const naHora=pagNaHora(l)?'Sim':'';
+    l.itens.forEach((i,k)=>vendas.push({B:serial(l.data),C:rot.get(l.clienteId)||'?',D:i.nome,E:i.qtd,F:i.preco,H:r2((i.custo||0)*i.qtd),J:naHora,K:l.id+':'+k}))}
+  encher(F.Vendas,['B','C','D','E','F','J','K'],vendas,5,3004);vendas.forEach((o,k)=>F.Vendas.por('H'+(5+k),o.H));
+  F.Vendas.por('K4','Código do app (não mexa)');F.Vendas.esconder(11);
+  const naHora=new Set(S.lanc.filter(l=>l.tipo==='venda').map(pagNaHora).filter(Boolean));
+  encher(F.Recebi,['B','C','D','E','F','G'],S.lanc.filter(l=>l.tipo==='pag'&&!naHora.has(l)).sort(porData).map(l=>({B:serial(l.data),C:rot.get(l.clienteId)||'?',D:l.valor,E:l.forma||'',F:l.obs||'',G:l.id})),5,1008);
+  F.Recebi.por('G4','Código do app (não mexa)');F.Recebi.esconder(7);
+  encher(F.Acertos,['B','C','D','E','F','G'],S.lanc.filter(l=>l.tipo==='ajuste').sort(porData).map(l=>({B:serial(l.data),C:rot.get(l.clienteId)||'?',D:l.valor,E:MOTIVO[l.motivo]||'Correção',F:l.obs||'',G:l.id})),5,504);
+  F.Acertos.por('G4','Código do app (não mexa)');F.Acertos.esconder(7);
+  encher(F.Clientes,['B','C','D'],S.clientes.slice().sort(porNome).map(c=>({B:rot.get(c.id),C:c.tel||'',D:c.obs||''})),5,304);
+  const ps=S.produtos.slice().sort((a,b)=>(b.ativo-a.ativo)||porNome(a,b));
+  encher(F.Produtos,['B','C','D','E','L'],ps.map(p=>{const c=calcProd(p);return{B:p.nome,C:nn(p.rende)||'',D:nn(p.horas)||'',E:nn(p.paga)>0?p.paga:c.fonte==='app'?p.custo:'',L:nn(p.preco)||''}}),5,104);
+  encher(F.Receitas,['B','C','D','G'],PL().receitas.map(r=>({B:(prod(r.produtoId)||{}).nome||'',C:(mat(r.materialId)||{}).nome||'',D:nn(r.qtd)||'',G:r.obs||''})).filter(o=>o.B&&o.C),5,504);
+  encher(F.Materiais,['B','C','D','E','F','I','J'],pl.materiais.slice().sort(porNome).map(m=>({B:m.nome,C:m.tipo||'',D:m.medida||'',E:nn(m.qtd)||'',F:nn(m.preco),I:m.onde||'',J:m.data?serial(m.data):''})),5,204);
+  const mm=F['Meu Mês'],c0=mm.achar('Conta')+1,c1=mm.achar('Total das contas')-1,cs=pl.contas.filter(c=>c.nome||nn(c.valor)),cab=c1-c0+1;
+  const contas=cs.length>cab?[...cs.slice(0,cab-1),{nome:'Outras contas',valor:cs.slice(cab-1).reduce((t,c)=>t+nn(c.valor),0),obs:cs.slice(cab-1).map(c=>c.nome).join(', ')}]:cs;
+  for(let r=c0;r<=c1;r++){const c=contas[r-c0];mm.por('B'+r,c?c.nome:'');mm.por('C'+r,c?nn(c.valor):'');mm.por('D'+r,c?c.obs||'':'')}
+  [['Quanto preciso para viver',pl.salario],['Dias que trabalho',pl.dias],['Horas por dia',pl.horasDia],['Taxas sobre',pl.taxas],['Perdas',pl.perdas],['Lucro que eu quero',pl.lucro]].forEach(([t,v])=>{const r=mm.achar(t,c1);if(r)mm.por('C'+r,nn(v))});
+  const te=new TextEncoder();
+  for(const n of PLANILHA_ABAS){F[n].semCache();zip.set(ab[n],te.encode(F[n].xml()))}
+  zip.set('xl/workbook.xml',te.encode(new TextDecoder().decode(zip.get('xl/workbook.xml')).replace(/<calcPr\b/,'<calcPr fullCalcOnLoad="1"')));
+  zip.delete('xl/calcChain.xml');
+  baixarBlob(await fazerZip([...zip]),`caderninho-planilha-${hoje()}.xlsx`);
+  toast(cheio?'Planilha baixada, mas tinha mais linhas do que ela comporta: algumas contas podem ficar de fora.':'Planilha baixada. Fica na pasta “Downloads”.',cheio);
+}
+
+/* ler a planilha editada e mostrar o que vai mudar antes de mexer em qualquer coisa */
+const assinatura=(aba,r,vals)=>{let h=5381;const s=aba+'|'+r+'|'+vals.join('|');for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return aba+r+':'+(h>>>0).toString(36)};
+async function trazerPlanilha(arq){
+  let zip,ab;
+  try{zip=await lerZip(await arq.arrayBuffer());ab=abasDoZip(zip)}catch(err){toast('Não consegui abrir esse arquivo. Ele precisa ser uma planilha do Excel (.xlsx).',true);return}
+  if(!['Vendas','Recebi','Acertos','Clientes','Produtos','Meu Mês'].every(n=>ab[n]&&zip.get(ab[n]))){toast('Essa não é a planilha do Caderninho.',true);return}
+  const sst=lerSST(zip),td=new TextDecoder(),F={};for(const n of PLANILHA_ABAS)if(ab[n]&&zip.get(ab[n]))F[n]=folha(td.decode(zip.get(ab[n])),sst);
+  const txt=x=>String(x??'').trim(),num=x=>typeof x==='number'?x:lerNum(x);
+  const ler=(f,cols,de,ate)=>{const out=[];if(!f)return out;for(let r=de;r<=ate;r++){const o={r};for(const c of cols)o[c]=f.ler(c+r);if(cols.some(c=>txt(o[c])!==''))out.push(o)}return out};
+  const mm=F['Meu Mês'],c0=mm.achar('Conta')+1,c1=mm.achar('Total das contas')-1,linhaMM=t=>{const r=mm.achar(t,c1);return r?num(mm.ler('C'+r)):0};
+  const imp=new Set(PL().importados||[]);
+  const novas=(aba,ls,id,vals)=>ls.filter(o=>!txt(o[id])).map(o=>Object.assign(o,{sig:assinatura(aba,o.r,vals.map(c=>txt(o[c])))})).filter(o=>!imp.has(o.sig));
+  const pl={
+    negocio:F['Início']?txt(F['Início'].ler('D4')):'',
+    mes:{contas:ler(mm,['B','C','D'],c0,c1).filter(o=>txt(o.B)||num(o.C)).map(o=>({nome:txt(o.B)||'Conta',valor:num(o.C),obs:txt(o.D)})),
+      salario:linhaMM('Quanto preciso para viver'),dias:linhaMM('Dias que trabalho'),horasDia:linhaMM('Horas por dia'),taxas:linhaMM('Taxas sobre'),perdas:linhaMM('Perdas'),lucro:linhaMM('Lucro que eu quero')},
+    materiais:ler(F.Materiais,['B','C','D','E','F','I','J'],5,204).filter(o=>txt(o.B)).map(o=>({nome:txt(o.B),tipo:txt(o.C)||'Ingrediente',medida:['g','ml','un'].includes(txt(o.D))?txt(o.D):'un',qtd:num(o.E),preco:num(o.F),onde:txt(o.I),data:o.J===''?hoje():dataDe(o.J)})),
+    produtos:ler(F.Produtos,['B','C','D','E','L'],5,104).filter(o=>txt(o.B)).map(o=>({nome:txt(o.B),rende:num(o.C),horas:num(o.D),paga:num(o.E),preco:num(o.L)})),
+    receitas:ler(F.Receitas,['B','C','D','G'],5,504).filter(o=>txt(o.B)&&txt(o.C)).map(o=>({produto:txt(o.B),material:txt(o.C),qtd:num(o.D),obs:txt(o.G)})),
+    clientes:ler(F.Clientes,['B','C','D'],5,304).filter(o=>txt(o.B)).map(o=>({nome:txt(o.B),tel:txt(o.C),obs:txt(o.D)})),
+    vendas:novas('V',ler(F.Vendas,['B','C','D','E','F','J','K'],5,3004).filter(o=>txt(o.C)&&(txt(o.D)||txt(o.F))),'K',['B','C','D','E','F','J']),
+    recebi:novas('R',ler(F.Recebi,['B','C','D','E','F','G'],5,3004).filter(o=>txt(o.C)&&num(o.D)),'G',['B','C','D','E','F']),
+    acertos:novas('A',ler(F.Acertos,['B','C','D','E','F','G'],5,504).filter(o=>txt(o.C)&&num(o.D)),'G',['B','C','D','E','F'])
+  };
+  const nomes=new Set([...rotulosClientes().values(),...S.clientes.map(c=>c.nome)].map(norm));
+  const cliNovos=new Set([...pl.clientes.map(c=>c.nome),...pl.vendas.map(o=>txt(o.C)),...pl.recebi.map(o=>txt(o.C)),...pl.acertos.map(o=>txt(o.C))].filter(n=>!nomes.has(norm(n))).map(norm)).size;
+  const prodNovos=pl.produtos.filter(p=>!S.produtos.some(x=>norm(x.nome)===norm(p.nome))).length;
+  const conta=(n,um,varios)=>`<li>${n} ${n===1?um:varios}</li>`;
+  perguntar('Trazer a planilha para o app?',`Encontrei na planilha:<ul style="margin:8px 0;padding-left:20px">${conta(pl.vendas.length,'venda nova','vendas novas')}${conta(pl.recebi.length,'pagamento novo','pagamentos novos')}${conta(pl.acertos.length,'acerto novo','acertos novos')}${conta(cliNovos,'cliente novo','clientes novos')}${conta(prodNovos,'produto novo','produtos novos')}<li>Meu Mês, materiais, receitas, custos e preços</li></ul>O que já veio do app não muda. Para corrigir ou apagar uma venda, um pagamento ou um acerto, use o app.`,'Sim, trazer',()=>{aplicarImportacao(pl);fechar();render();toast('Planilha trazida para o app')},'');
+}
+function aplicarImportacao(pl){
+  const P=PL(),rot=rotulosClientes(),cliPor=new Map();
+  for(const c of S.clientes){cliPor.set(norm(rot.get(c.id)),c.id);if(!cliPor.has(norm(c.nome)))cliPor.set(norm(c.nome),c.id)}
+  if(pl.negocio)S.ajustes.negocio=pl.negocio;
+  P.contas=pl.mes.contas.map(c=>Object.assign({id:uid()},c));
+  for(const k of ['salario','dias','horasDia','taxas','perdas','lucro'])P[k]=pl.mes[k];
+  const matAnt=new Map(P.materiais.map(m=>[norm(m.nome),m.id]));
+  P.materiais=pl.materiais.map(m=>Object.assign({id:matAnt.get(norm(m.nome))||uid()},m));
+  for(const c of pl.clientes){const id=cliPor.get(norm(c.nome));if(id){const x=cli(id);x.tel=c.tel;x.obs=c.obs}else{const x={id:uid(),nome:c.nome,tel:c.tel,obs:c.obs};S.clientes.push(x);cliPor.set(norm(c.nome),x.id)}}
+  const prodPor=new Map(S.produtos.map(p=>[norm(p.nome),p]));
+  for(const p of pl.produtos){let x=prodPor.get(norm(p.nome));if(!x){x={id:uid(),nome:p.nome,preco:0,custo:0,foto:null,ativo:true};S.produtos.push(x);prodPor.set(norm(p.nome),x)}
+    x.rende=p.rende;x.horas=p.horas;x.paga=p.paga;if(p.preco>0)x.preco=p.preco}
+  const matPor=new Map(P.materiais.map(m=>[norm(m.nome),m.id]));
+  P.receitas=pl.receitas.map(r=>({id:uid(),produtoId:(prodPor.get(norm(r.produto))||{}).id,materialId:matPor.get(norm(r.material)),qtd:r.qtd,obs:r.obs})).filter(r=>r.produtoId&&r.materialId);
+  aplicarPlanilha();
+  const idCli=nome=>{let id=cliPor.get(norm(nome));if(!id){const x={id:uid(),nome,tel:'',obs:''};S.clientes.push(x);id=x.id;cliPor.set(norm(nome),id)}return id};
+  const txt=x=>String(x??'').trim(),num=x=>typeof x==='number'?x:lerNum(x);let t=Date.now();const criado=()=>new Date(t++).toISOString();
+  for(const o of pl.vendas){const p=prodPor.get(norm(o.D)),qtd=num(o.E)>0?num(o.E):1,preco=num(o.F)>0?num(o.F):p?nn(p.preco):0,data=dataDe(o.B),cr=criado();
+    const item=p?{produtoId:p.id,nome:p.nome,qtd,preco,custo:nn(p.custo)}:{produtoId:null,nome:(qtd>1?qtd+' ':'')+(txt(o.D)||'Valor avulso'),qtd:1,preco:r2(preco*qtd),custo:0};
+    const l={id:uid(),tipo:'venda',clienteId:idCli(txt(o.C)),itens:[item],valor:r2(item.preco*item.qtd),custo:r2(item.custo*item.qtd),data,criado:cr};S.lanc.push(l);
+    if(/^s/i.test(txt(o.J)))S.lanc.push({id:uid(),tipo:'pag',clienteId:l.clienteId,valor:l.valor,forma:'Na hora',data,criado:cr+'1'})}
+  for(const o of pl.recebi)S.lanc.push({id:uid(),tipo:'pag',clienteId:idCli(txt(o.C)),valor:r2(num(o.D)),forma:txt(o.E)||'Dinheiro',obs:txt(o.F),data:dataDe(o.B),criado:criado()});
+  for(const o of pl.acertos)S.lanc.push({id:uid(),tipo:'ajuste',clienteId:idCli(txt(o.C)),valor:r2(num(o.D)),motivo:/corre/i.test(txt(o.E))?'erro':'presente',obs:txt(o.F),data:dataDe(o.B),criado:criado()});
+  P.importados=[...(P.importados||[]),...pl.vendas,...pl.recebi,...pl.acertos].map(o=>o.sig||o);
+  salvar();
 }
 
 /* ---------- cliques ---------- */
@@ -661,19 +1118,63 @@ document.addEventListener('click',async e=>{
       if(isNaN(v)||v<0){toast('Escreva quanto a pessoa deve ficar devendo. Ex.: 15,00 (ou 0,00)',true);$('#ajNovo').focus();return}
       registrarAjuste(v,motivoAj); break;}
     case 'perdoar': registrarAjuste(0,'presente'); break;
+    /* planilha */
+    case 'aba': ui.aba=b.dataset.v; if(!$('#sheet').hidden)fechar(); ir('planilha'); break;
+    case 'mes': ui.mes=mesMais(ui.mes,+b.dataset.v); render(); break;
+    case 'escolha': escolhas[b.dataset.g]=b.dataset.v; b.parentNode.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',x===b));
+      if(b.dataset.g==='modo'){$('#grpPronto').hidden=b.dataset.v!=='Compro pronto';$('#grpPreparo').hidden=b.dataset.v!=='Eu preparo'} break;
+    case 'planProd': formPlanProd(prod(id)); break;
+    case 'salvarPlanProd': { const p=prod(id); lerPlanProd(p); render(); formPlanProd(p); toast('Salvo. Os números foram recalculados'); break;}
+    case 'usarSugerido': { const p=prod(id); lerPlanProd(p); const k=calcProd(p).K; if(k){p.preco=k;salvar()} render(); formPlanProd(p); toast(`Agora você cobra ${brl(p.preco)}`); break;}
+    case 'editReceita': { if($('#ppPreco'))lerPlanProd(prod(id)); abrirReceita(id,$('#ppPreco')?'prod':'lista'); break;}
+    case 'recMais': rec.linhas.push({materialId:PL().materiais.slice().sort(porNome)[0].id,qtd:0,obs:''}); formReceita(); break;
+    case 'recTirar': rec.linhas.splice(+b.dataset.v,1); formReceita(); break;
+    case 'voltarReceita': if(rec.origem==='prod')formPlanProd(prod(rec.pid)); else fechar(); break;
+    case 'salvarReceita': {
+      const P=PL(),ls=rec.linhas.filter(r=>r.materialId&&nn(r.qtd)>0).map(r=>Object.assign({id:uid(),produtoId:rec.pid},r));
+      P.receitas=P.receitas.filter(r=>r.produtoId!==rec.pid).concat(ls); aplicarPlanilha(); salvar(); render();
+      if(rec.origem==='prod')formPlanProd(prod(rec.pid)); else fechar(); toast('Receita salva'); break;}
+    case 'editMat': formMaterial(id?mat(id):null); break;
+    case 'salvarMat': {
+      const nome=$('#mNome').value.trim(),qtd=lerNum($('#mQtd').value),preco=parseMoney($('#mPreco').value);
+      if(!nome){toast('Escreva o nome do material.',true);$('#mNome').focus();return}
+      if(!(qtd>0)){toast('Escreva quanto vem no pacote. Ex.: 395',true);$('#mQtd').focus();return}
+      if(isNaN(preco)||preco<0){toast('Escreva quanto pagou. Ex.: 6,49',true);$('#mPreco').focus();return}
+      const dados={nome,tipo:escolhas.tipo,medida:escolhas.medida,qtd,preco,onde:$('#mOnde').value.trim(),data:hoje()};
+      if(id)Object.assign(mat(id),dados); else PL().materiais.push(Object.assign({id:uid()},dados));
+      aplicarPlanilha(); salvar(); fechar(); render(); toast(id?'Material atualizado':'Material cadastrado'); break;}
+    case 'apagarMat': { const n=PL().receitas.filter(r=>r.materialId===id).length;
+      perguntar('Apagar este material?',n?`Ele sai também de ${n} ${n===1?'linha de receita':'linhas de receitas'}.`:'Ele some da lista de materiais.','Sim, apagar',()=>{const P=PL();P.materiais=P.materiais.filter(m=>m.id!==id);P.receitas=P.receitas.filter(r=>r.materialId!==id);aplicarPlanilha();salvar();fechar();render();toast('Material apagado')}); break;}
+    case 'editConta': formConta(id?PL().contas.find(c=>c.id===id):null); break;
+    case 'salvarConta': {
+      const nome=$('#cNome').value.trim(),v=$('#cValor').value.trim(),valor=v?parseMoney(v):0;
+      if(!nome){toast('Escreva o nome da conta.',true);$('#cNome').focus();return}
+      if(isNaN(valor)||valor<0){toast('Escreva o valor por mês. Ex.: 60,00',true);$('#cValor').focus();return}
+      const dados={nome,valor,obs:$('#cObs').value.trim()};
+      if(id)Object.assign(PL().contas.find(c=>c.id===id),dados); else PL().contas.push(Object.assign({id:uid()},dados));
+      aplicarPlanilha(); salvar(); fechar(); render(); toast('Conta salva'); break;}
+    case 'apagarConta': PL().contas=PL().contas.filter(c=>c.id!==id); aplicarPlanilha(); salvar(); fechar(); render(); toast('Conta tirada'); break;
+    case 'editTempo': formTempo(); break;
+    case 'salvarTempo': { const P=PL(); P.salario=lerNum($('#tSal').value); P.dias=lerNum($('#tDias').value); P.horasDia=lerNum($('#tHoras').value);
+      aplicarPlanilha(); salvar(); fechar(); render(); toast(`Sua hora vale ${brl(valorHora())}`); break;}
+    case 'editPct': formPct(); break;
+    case 'salvarPct': { const t=lerNum($('#xTaxas').value)/100,pe=lerNum($('#xPerdas').value)/100,lu=lerNum($('#xLucro').value)/100;
+      if(t<0||pe<0||lu<0||t+lu>=1){toast('As porcentagens ficaram estranhas. Ex.: taxas 3, perdas 5, lucro 15',true);return}
+      Object.assign(PL(),{taxas:t,perdas:pe,lucro:lu}); aplicarPlanilha(); salvar(); fechar(); render(); toast('Porcentagens salvas'); break;}
+    case 'baixarPlanilha': try{await baixarPlanilha()}catch(err){toast('Não consegui montar a planilha aqui. Tente de novo.',true)} break;
     case 'novoProduto': formProd(null); break;
     case 'editProd': formProd(prod(id)); break;
     case 'toggleAtivo': b.setAttribute('aria-checked',b.getAttribute('aria-checked')!=='true'); break;
     case 'semFoto': fotoTemp=null; $('#fotoBox').innerHTML=fotoHTML(); b.hidden=true; break;
     case 'salvarProd': {
-      const nome=$('#pNome').value.trim(),preco=parseMoney($('#pPreco').value),cr=$('#pCusto').value.trim(),custo=cr?parseMoney(cr):0;
+      const ce=$('#pCusto'),nome=$('#pNome').value.trim(),preco=parseMoney($('#pPreco').value),cr=ce?ce.value.trim():'',custo=ce?(cr?parseMoney(cr):0):prod(id).custo;
       if(!nome){toast('Escreva o nome do produto.',true);$('#pNome').focus();return}
       if(!(preco>0)){toast('Escreva o preço. Ex.: 12,00',true);$('#pPreco').focus();return}
-      if(isNaN(custo)||custo<0){toast('O custo ficou estranho. Ex.: 4,50',true);$('#pCusto').focus();return}
+      if(isNaN(custo)||custo<0){toast('O custo ficou estranho. Ex.: 4,50',true);ce.focus();return}
       if(id){const p=prod(id);Object.assign(p,{nome,preco,custo,foto:fotoTemp,ativo:$('#pAtivo').getAttribute('aria-checked')==='true'})}
       else S.produtos.push({id:uid(),nome,preco,custo,foto:fotoTemp,ativo:true});
-      salvar();fechar();render();toast(id?'Produto atualizado':'Produto criado');break;}
-    case 'apagarProd': perguntar('Apagar este produto?','Ele some da lista de produtos.','Sim, apagar',()=>{S.produtos=S.produtos.filter(p=>p.id!==id);salvar();fechar();render();toast('Produto apagado')}); break;
+      aplicarPlanilha();salvar();fechar();render();toast(id?'Produto atualizado':'Produto criado');break;}
+    case 'apagarProd': perguntar('Apagar este produto?','Ele some da lista de produtos.','Sim, apagar',()=>{S.produtos=S.produtos.filter(p=>p.id!==id);PL().receitas=PL().receitas.filter(r=>r.produtoId!==id);salvar();fechar();render();toast('Produto apagado')}); break;
     case 'sim': if(confirmar){const f=confirmar;confirmar=null;f()} break;
     case 'fechar': fechar(); break;
     case 'config': formConfig(); break;
@@ -702,6 +1203,9 @@ document.addEventListener('input',e=>{
   if(e.target.id==='buscaProd'){ui.venda.buscaProd=e.target.value;$('#listaProd').innerHTML=prodsVendaHTML()}
   if(e.target.classList.contains('evval')){edit.itens[e.target.dataset.v].preco=parseMoney(e.target.value)||0;$('#evTotal').textContent=brl(totalEdit())}
   if(e.target.id==='evData')edit.data=e.target.value;
+  if(e.target.classList.contains('recmat')||e.target.classList.contains('recqtd')){const k=+e.target.dataset.v,r=rec.linhas[k];
+    if(e.target.classList.contains('recmat'))r.materialId=e.target.value; else r.qtd=lerNum(e.target.value);
+    const m=mat(r.materialId);$('#recMed'+k).textContent=m?m.medida:'';$('#recCus'+k).textContent=brl(custoLinha(r));$('#recTotal').textContent=brl(rec.linhas.reduce((t,x)=>t+custoLinha(x),0))}
   if(e.target.id==='dataVenda')ui.venda.data=e.target.value;
 });
 document.addEventListener('change',async e=>{
@@ -709,6 +1213,7 @@ document.addEventListener('change',async e=>{
   if((t.id==='fotoCam'||t.id==='fotoGal')&&t.files&&t.files[0]){
     try{fotoTemp=await comprimir(t.files[0]);$('#fotoBox').innerHTML=fotoHTML();$('#semFoto').hidden=false}catch(err){toast('Não consegui abrir essa foto. Tente outra.',true)}
   }
+  if(t.id==='planArq'&&t.files&&t.files[0]){const f=t.files[0];t.value='';trazerPlanilha(f).catch(()=>toast('Não consegui ler essa planilha.',true))}
   if(t.id==='restArq'&&t.files&&t.files[0]){const fr=new FileReader();fr.onload=()=>restaurar(String(fr.result));fr.readAsText(t.files[0])}
 });
 

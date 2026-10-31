@@ -13,13 +13,14 @@ de fiado para qualquer negócio. O histórico de como chegamos aqui está em `do
   "Cópia de segurança"). Nada de "sincronizar", "exportar JSON", "registro", etc. nas telas.
 - Texto neutro: nada que suponha o ramo (doce, lanche…) nem o gênero de quem usa ("Boas-vindas", não "Bem-vinda").
 - Visual de organizador profissional e minimalista: azul (`--accent`), cinzas neutros, cartões com borda fina.
-  Vermelho só para dívida, verde só para pagamento.
+  Vermelho só para dívida (e preço com prejuízo), verde só para pagamento (e preço bom); `--warn` para avisos.
 
 ## Como é feito
 
 - **Sem build e sem dependências.** Tudo está em `app/index.html` (HTML + CSS + JS puro, num único IIFE).
   Só carrega a fonte Inter do Google Fonts.
-- Telas: `resumo`, `clientes`, `cliente`, `vender`, `produtos`. Cada uma é uma função `vX()` que devolve HTML;
+- Telas: `resumo`, `clientes`, `cliente`, `vender`, `produtos` e `planilha` (aberta pelo botão "Consultar planilha"
+  do Resumo, sem aba no rodapé; as abas dela ficam em `ui.aba`). Cada uma é uma função `vX()` que devolve HTML;
   `render()` redesenha. Formulários abrem numa "janela de baixo" (`abrir()` / `fechar()`).
 - Todos os cliques passam por um único listener que lê `data-act` / `data-id` / `data-v`.
 - Buscas usam `norm()` (sem acento e sem maiúscula: "joao" acha "João").
@@ -39,6 +40,10 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
           {id, tipo:'pag',   clienteId, valor, forma /* Pix|Dinheiro|Cartão|Na hora */, data, criado},
           {id, tipo:'ajuste', clienteId, valor /* com sinal: − diminui a dívida, + aumenta */, motivo /* presente|erro */, data, criado} ],
   ajustes: {negocio /* nome do negócio, opcional */},
+  planilha: {contas:[{id, nome, valor, obs}], salario, dias, horasDia, taxas, perdas, lucro /* 0.03 = 3% */,
+             materiais:[{id, nome, tipo, medida /* g|ml|un */, qtd, preco, onde, data}],
+             receitas:[{id, produtoId, materialId, qtd, obs}],
+             importados:[/* linhas da planilha .xlsx já trazidas, para não trazer duas vezes */]},
   ultimoBackup: timestamp|null }
 ```
 
@@ -53,9 +58,32 @@ Ficam só no aparelho: IndexedDB `caderninho` → store `kv` → chave `cadernin
   A venda "já pagou na hora" tem um `pag` com `forma:'Na hora'` e `criado` = `criado` da venda + `'1'`
   (`pagNaHora()`): corrigir ou apagar a venda corrige ou apaga esse pagamento junto.
 
+- Produtos ganharam (opcionais) `rende`, `horas` e `paga` (compra pronto). Quando a planilha sabe calcular
+  (`calcProd()`: compra pronta ou receita + rendimento), `aplicarPlanilha()` grava em `p.custo` o custo por unidade
+  com as perdas; chame-a depois de mudar qualquer coisa da planilha. Sem isso, `p.custo` é o que a pessoa digitou.
+- Todas as contas da planilha estão em `calcProd()`, `contasMes()` e `meta()` e seguem as fórmulas de
+  `app/planilha-modelo.xlsx` (abas Produtos e Resumo). Mudou uma, mude a outra.
+
+## Planilha .xlsx (`app/planilha-modelo.xlsx`)
+
+- É a planilha de custos que a pessoa fez (10 abas, fórmulas, cores). "Baixar planilha" abre esse modelo, escreve os
+  dados do app só nas células de preencher (`baixarPlanilha()`), tira os resultados guardados das fórmulas e marca
+  `fullCalcOnLoad`, então Excel, Google Planilhas e LibreOffice refazem as contas ao abrir. Zip e XML são lidos e
+  escritos à mão (`lerZip`, `fazerZip`, `folha`), sem biblioteca.
+- As abas se ligam pelo nome do cliente/produto; `rotulosClientes()` desfaz nomes repetidos.
+- Vendas, Recebi e Acertos levam o id do app numa coluna escondida (K, G, G). "Trazer planilha editada"
+  (`trazerPlanilha()`) só cria lançamentos para linhas sem id e guarda a assinatura delas em `planilha.importados`.
+  Meu Mês, materiais, receitas, dados dos produtos e clientes vêm da planilha; o que veio do app não é alterado.
+- Mudou o modelo (linhas, colunas, abas)? Confira `baixarPlanilha()` e `trazerPlanilha()`. O Meu Mês é achado pelo
+  texto da coluna B (`achar()`), as listas pelas linhas fixas (5 até o fim de cada aba).
+- Testar: baixe pelo app, rode `soffice --headless --calc --convert-to xlsx` no arquivo e leia os valores com
+  openpyxl (`data_only=True`): as contas do LibreOffice precisam bater com a planilha do app.
+
+## Mais sobre os dados
+
 - O saldo de cada cliente é sempre calculado (vendas + ajustes − pagamentos); nunca é guardado.
 - A venda guarda nome/preço/custo do produto **daquele dia**, para mudar o preço depois não alterar o passado.
-- Cópia de segurança: `{app:'caderninho', versao:1, em, dados:{produtos, clientes, lanc, ajustes}}`
+- Cópia de segurança: `{app:'caderninho', versao:1, em, dados:{produtos, clientes, lanc, ajustes, planilha}}`
   (`ajustes` só nas cópias novas; ao recuperar uma cópia sem ele, o nome do negócio atual fica).
   Qualquer mudança de formato precisa continuar lendo dados e cópias antigas.
 
