@@ -260,7 +260,7 @@ const fmtCurta=s=>{if(!s)return '';const[a,m,d]=s.split('-');return d+'/'+m+(a==
 function haQuanto(s){const d=Math.max(0,Math.round((Date.parse(hoje())-Date.parse(s))/864e5));return d===0?'hoje':d===1?'ontem':`há ${d} dias`}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 /* busca sem ligar para acento e maiúscula: "joao" acha "João" */
-const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const bate=(c,b)=>!b||norm(c.nome).includes(b)||norm(c.obs).includes(b);
 const porNome=(a,b)=>a.nome.localeCompare(b.nome,'pt-BR');
 function iniciais(n){const p=String(n||'').trim().split(/\s+/).filter(Boolean).map(w=>Array.from(w)[0]);return esc(((p.length>1?p[0]+p[p.length-1]:p[0])||'?').toUpperCase())}
