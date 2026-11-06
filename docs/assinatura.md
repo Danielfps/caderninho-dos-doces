@@ -82,5 +82,6 @@ npx deno check ../supabase/functions/*/handler.ts ../supabase/functions/*/index.
 
 - Webhook chegando de verdade no projeto de teste, e o formato real dos avisos de assinatura.
 - Volta do checkout pelo `back_url` no celular.
+- Estorno real: o caminho está pronto, mas falta ver o aviso verdadeiro.
 - Renovação real e recusa de cartão em assinatura já ativa: testadas só no Mercado Pago de mentira.
 - Tudo na conta real: pagar sem conta, formas de pagamento oferecidas e Pix.

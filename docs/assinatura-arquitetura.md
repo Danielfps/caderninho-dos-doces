@@ -18,6 +18,7 @@ Provado no plano por tentativa:
 - `PUT /preapproval_plan/{id}` com novo valor passa para a assinatura ligada. `PUT /preapproval/{id}` com valor também funciona. Numa rodada, um `PUT` na assinatura logo depois de um `PUT` no plano voltou ao valor do plano: sempre reler e repetir até bater.
 - `frequency: 12` é aceito no plano.
 - Plano sem assinante, ou com assinatura já cancelada: fecha com `PUT /preapproval_plan/{id}` e `{status:"cancelled"}`.
+- Fechar duas vezes o mesmo plano devolve 200. `POST` e `GET` de plano trazem `collector_id`.
 - Plano com assinatura `authorized` **não fecha** (400 `bad_request`), então o link de quem pagou continua aberto. Um segundo pagamento no mesmo link precisa ser tratado (ver sincronização).
 
 ## Fatos provados na API (05/11/2026, conta de teste)
@@ -160,6 +161,16 @@ Período: `interval '1 month'` para mensal, `'12 months'` para anual.
 `pago_ate` é o maior `valido_ate` entre `cobrancas` aprovadas e `compras` aprovadas. Estorno muda a cobrança para `estornada`, e `pago_ate` recua sozinho.
 
 `liberado_ate` = maior entre `teste_ate` e `pago_ate`, somando 3 dias a `pago_ate` quando há contratação em `ativa` ou `falha_pagamento`.
+
+## Decisões da revisão independente (06/11/2026)
+
+- `reusar` sincroniza antes de devolver o link: quem já pagou recebe `ja_ativa`, nunca o mesmo link de novo.
+- `conferir` devolve `conferencia_ok`. Com `false`, o app não diz que a pessoa não pagou.
+- O aviso `payment` com `refunded` ou `charged_back` estorna direto pelo id do pagamento, sem depender da fatura mudar. Sem prova real ainda.
+- Faturas de todas as assinaturas pagas do plano são lidas, inclusive canceladas, sempre da mais antiga para a mais nova.
+- Sem `authorized`, a assinatura principal é a paga mais antiga: quem pagou não perde os dias.
+- Pagamento `cancelled` numa tentativa é recusa, não estorno.
+- Falha do serviço de contas responde 503 `servico`: só 401 ou 403 tiram a pessoa da conta.
 
 ## Promoção
 
