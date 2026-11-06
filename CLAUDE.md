@@ -124,34 +124,26 @@ Ficam no aparelho: IndexedDB `caderninho` → store `kv` → chave `caderninho-v
 - **A conta é obrigatória.** Sem conta, sem teste grátis válido e sem pagamento vigente, `render()` mostra o "portão"
   (`vPortao()`, `<section id="portao" data-estado="entrar|codigo|conferindo|assinar">`) no lugar do caderninho e o
   `<body>` ganha a classe `trancado` (some o rodapé). Os dados do caderninho nunca são apagados por isso.
-- Regra: **3 dias grátis** a partir da criação da conta. Depois, a pessoa escolhe um pagamento único no Checkout Pro,
-  por Pix ou cartão, sem informar e-mail para o pagamento e sem cobrança automática. O plano **mensal** vale 30 dias:
-  R$ 14,90 na primeira compra mensal aprovada da conta, depois R$ 19,90. O plano **anual** vale 12 meses (365 dias)
-  por R$ 149,90. A promoção mensal volta se a compra que a consumiu for estornada. Os preços ficam em `planos`
-  (`mensal`, `mensal_promo`, `anual`); as compras e suas validades ficam em `compras`. `registrar_compra()` registra
-  cada `payment_id` de forma idempotente. O prazo de cada compra começa no maior entre agora, o fim do teste grátis e
-  a validade mais distante das compras aprovadas, então os pagamentos somam.
+- Regra: **3 dias grátis** a partir da criação da conta. Depois, assinatura com renovação automática pelo Mercado Pago, no
+  checkout hospedado dele. Mensal: R$ 14,90 na primeira mensal da conta, depois R$ 19,90. Anual: R$ 149,90. Os preços ficam
+  em `planos` (`mensal`, `mensal_promo`, `anual`). Cada tentativa é uma linha em `contratacoes`, com um plano próprio no
+  Mercado Pago, sem e-mail. Cada fatura é uma linha em `cobrancas`, e **só cobrança aprovada libera acesso**. `compras`
+  guarda as compras avulsas antigas, que continuam valendo. `assinaturas` é legado e não conta para nada.
   As telas usam `cartoesPlanos()`, `telaAssinar()` e `precos()`. O servidor decide o acesso: `minha_situacao()` devolve
-  `agora`, `teste_ate`, `pago_ate`, `plano`, `liberado_ate` e preços. O app usa `pago_ate` e `plano` para mostrar o
-  plano e sua validade.
+  `agora`, `teste_ate`, `pago_ate`, `plano`, `liberado_ate`, preços, `assinatura`, `cobrancas` e `conferir`.
 - Tudo no bloco "minha conta e assinatura" de `app/index.html`. Cliques `conta*`, `assin*` e `teste*` vão para
   `acaoConta()`. `estadoConta()` diz em que pé está; `verificarAcesso(viaMP)` pergunta ao servidor e só redesenha
   se o estado mudou (para não apagar uma venda sendo digitada). Aviso no Resumo: `bannerAssinatura()`.
-- Servidor em `supabase/`: `assinatura` cria uma preferência do Checkout Pro e devolve `init_point`; `conferir` consulta
-  o Mercado Pago pelo `payment_id` e pelas referências de mensal e anual da conta. `mp-webhook` recebe avisos em
-  `notification_url` e busca o pagamento em `GET /v1/payments/{id}` com o token da aplicação. Não valida HMAC: o aviso
-  não é prova de pagamento; a função confere no Mercado Pago a referência, a moeda, o valor e o status antes de chamar
-  `registrar_compra()`. A migração `202611050001_pagamento_unico.sql` muda os planos aceitos em `compras`, substitui
-  `registrar_compra()` e faz `minha_situacao()` calcular o acesso por teste grátis e compras aprovadas. A tabela
-  `assinaturas` antiga permanece no banco, mas não participa desse cálculo. Veja também `docs/conta.md` e
-  `docs/assinatura.md`.
+- Servidor em `supabase/functions`: a lógica de cada função fica em `handler.ts` e o `index.ts` só tem `Deno.serve`. `assinatura`
+  tem as ações `criar`, `conferir` e `cancelar`; `mp-webhook` confere o HMAC e relê o Mercado Pago; `mp-reconciliar` confere
+  tudo. A regra de sincronização está em `_shared/contratacao.ts`. Desenho, máquina de estados e fatos provados na API:
+  `docs/assinatura-arquitetura.md`. Operação e passos para produção: `docs/assinatura.md`. Roteiro de teste: `docs/teste-assinatura.md`.
 - `CONTA_URL` / `CONTA_CHAVE` (chave **pública**, nunca a `service_role`). **Vazios = MODO DE TESTE**: o objeto
   `teste` faz o papel do servidor (mesmas regras, contas em `localStorage['caderninho-teste']`), aparece o botão 🧪
   no alto com o painel (passar 1 dia, fim do teste grátis, passar 1 mês e apagar contas de teste) e o pagamento é de
   mentira. Cada aprovação de teste soma 30 ou 365 dias depois do fim do teste grátis. Preencheu os dois, o modo de
   teste some sozinho.
-- Mudou uma regra de acesso? Mude nos 3 lugares: `minha_situacao()` (SQL), `calcularLiberadoAte()`
-  (`supabase/functions/_shared/assinatura.mjs`) e `teste.situacao()` (app).
+- Mudou uma regra de acesso? Mude nos 2 lugares: `minha_situacao()` (SQL) e `teste.situacao()` (app).
 
 ## Conta que não cai e guardar na conta (02/11/2026)
 
@@ -188,7 +180,8 @@ conferir Resumo) num celular emulado (`devices['Pixel 7']`).
   falha. Servidor: `node --test testes/assinatura.test.mjs`.
 - **Vários celulares, sem internet, planos:** `node testes/sincronizar.e2e.mjs` (dois celulares contra o Supabase de
   mentira `testes/supabase-falso.mjs`, que roda as migrações de verdade no PGlite). Tem que dar 0 falha.
-  SQL e servidor: `node --test testes/sincronizar.test.mjs testes/supabase-falso.test.mjs testes/assinatura.test.mjs`.
+  SQL e servidor: `node --test testes/sincronizar.test.mjs testes/supabase-falso.test.mjs testes/assinatura.test.mjs testes/mp-falso.test.mjs`.
+- **Assinatura de ponta a ponta:** `node testes/assinatura.e2e.mjs` roda as Edge Functions reais em Deno contra o Supabase e o Mercado Pago de mentira. Tem que dar 0 falha. Depois de qualquer mudança em `supabase/`, rode também `npx deno check` nos `handler.ts`.
 - **Planilha:** `node testes/planilha.test.js` (com o servidor acima rodando; usa LibreOffice e openpyxl, via
   `testes/planilha_xlsx.py`). Traz a planilha original para um app vazio, mexe nos custos pelo app (preço de
   material, perdas, salário, compra pronta, preço sugerido, venda, apagar material, conta nova), baixa, mexe no

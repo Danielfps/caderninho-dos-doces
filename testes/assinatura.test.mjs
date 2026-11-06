@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isUuid, lerReferencia, pagamentoValido, referenciaDaConta, lerNotificacaoPagamento } from "../supabase/functions/_shared/assinatura.mjs";
+import { isUuid, lerReferencia, pagamentoValido, referenciaDaConta, lerNotificacaoPagamento, lerQuantidadeCobrada } from "../supabase/functions/_shared/assinatura.mjs";
 
 const ana = "11111111-1111-4111-8111-111111111111";
 const bia = "22222222-2222-4222-8222-222222222222";
@@ -53,4 +53,10 @@ test("lê data.id do aviso e id/topic alternativos", () => {
   assert.deepEqual(lerNotificacaoPagamento("https://hook.test/", { data: { id: 789 }, type: "payment" }), { id: "789", tipo: "payment" });
   assert.deepEqual(lerNotificacaoPagamento("https://hook.test/", { id: "987", topic: "payment" }), { id: "987", tipo: "payment" });
   assert.deepEqual(lerNotificacaoPagamento("https://hook.test/?data.id=1", { data: { id: 2 } }), { id: "1", tipo: "" });
+});
+
+test("quantidade de cobranças resumida nula equivale a zero", () => {
+  assert.equal(lerQuantidadeCobrada({ summarized: { charged_quantity: null } }), 0);
+  assert.equal(lerQuantidadeCobrada({ summarized: { charged_quantity: 2 } }), 2);
+  assert.equal(lerQuantidadeCobrada({ summarized: {} }), 0);
 });

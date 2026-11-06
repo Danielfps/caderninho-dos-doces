@@ -296,22 +296,33 @@ await passo('Planos: fim do teste grátis mostra mensal (14,90 → 19,90) e anua
   await expect(A.pagina.locator('#portao')).toContainText('14,90');
   await expect(A.pagina.locator('#portao')).toContainText('19,90');
   await expect(A.pagina.locator('#portao')).toContainText('149,90');
-  await expect(A.pagina.locator('#portao')).toContainText('Economize 37%');
+  await expect(A.pagina.locator('#portao')).toContainText('Renova sozinho todo mês. Cancele quando quiser.');
+  await expect(A.pagina.locator('#portao')).toContainText('Renova sozinho todo ano. Cancele quando quiser.');
+  await expect(A.pagina.locator('#portao')).not.toContainText(/Pix|pagamento único|não renova sozinho|paga uma vez|parcelar|vale por 30 dias/i);
   await print(A.pagina, '06-A-planos');
 });
 
-await passo('Plano anual: vai ao Mercado Pago, paga e volta liberado', async () => {
+let planoAnualMp = '';
+await passo('Plano anual: vai ao Mercado Pago, paga e volta sem depender de preapproval_id', async () => {
   await A.pagina.route('https://www.mercadopago.com.br/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<h1>Mercado Pago de mentira</h1>' }));
   await A.pagina.locator('#portao [data-act="assinPlano"][data-v="anual"]').click();
-  await expect(A.pagina.locator('#portao [data-act="assinIr"]')).toContainText('149,90');
   await Promise.all([A.pagina.waitForURL(/mercadopago\.com\.br/), A.pagina.locator('#portao [data-act="assinIr"]').click()]);
-  const pagamentoAnual = await falso.aprovarAnual(conta1.email);
-  await A.pagina.goto(`${base}?payment_id=${pagamentoAnual}&status=approved`, { waitUntil: 'domcontentloaded' });
+  planoAnualMp = new URL(A.pagina.url()).searchParams.get('preapproval_plan_id') || '';
+  expect(planoAnualMp).toBeTruthy();
+  await falso.pagarPlano(planoAnualMp, { payerEmail: 'pagador-anual@exemplo.test' });
+  await A.pagina.goto(`${base}?status=approved`, { waitUntil: 'domcontentloaded' });
+  await expect(A.pagina.locator('#sheet h1')).toHaveText('Estamos confirmando sua assinatura.');
   await liberado(A.pagina);
+  await expect(A.pagina).not.toHaveURL(/preapproval_id|status=/);
   await A.pagina.locator('#btnConta').click();
   await expect(A.pagina.locator('#sheet')).toContainText('Plano anual');
   await print(A.pagina, '07-A-anual');
   await A.pagina.locator('#sheet [data-act="fechar"]').click();
+  await B.pagina.reload({ waitUntil: 'domcontentloaded' });
+  await liberado(B.pagina);
+  await B.pagina.locator('#btnConta').click();
+  await expect(B.pagina.locator('#sheet')).toContainText('Plano anual');
+  await B.pagina.locator('#sheet [data-act="fechar"]').click();
 });
 
 await passo('Plano mensal: 1º mês promocional e depois a promoção some', async () => {
@@ -320,11 +331,15 @@ await passo('Plano mensal: 1º mês promocional e depois a promoção some', asy
   await entrar(E.pagina, conta2);
   await portao(E.pagina, 'assinar');
   await E.pagina.route('https://www.mercadopago.com.br/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<h1>Mercado Pago de mentira</h1>' }));
-  await expect(E.pagina.locator('#portao [data-act="assinIr"]')).toContainText('14,90');
   await Promise.all([E.pagina.waitForURL(/mercadopago\.com\.br/), E.pagina.locator('#portao [data-act="assinIr"]').click()]);
-  const pagamentoMensal = await falso.aprovarMensal(conta2.email);
-  await E.pagina.goto(`${base}?payment_id=${pagamentoMensal}&status=approved`, { waitUntil: 'domcontentloaded' });
+  const planoMensalMp = new URL(E.pagina.url()).searchParams.get('preapproval_plan_id') || '';
+  expect(planoMensalMp).toBeTruthy();
+  expect(planoMensalMp).not.toBe(planoAnualMp);
+  await falso.pagarPlano(planoMensalMp, { payerEmail: 'pagador-mensal@exemplo.test' });
+  await E.pagina.goto(`${base}?status=approved`, { waitUntil: 'domcontentloaded' });
+  await expect(E.pagina.locator('#sheet h1')).toHaveText('Estamos confirmando sua assinatura.');
   await liberado(E.pagina);
+  await expect(E.pagina).not.toHaveURL(/preapproval_id|status=/);
   await E.pagina.locator('#btnConta').click();
   await expect(E.pagina.locator('#sheet')).toContainText('Plano mensal');
   await print(E.pagina, '08-E-mensal');

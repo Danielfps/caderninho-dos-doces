@@ -2,6 +2,41 @@
 
 Fonte da verdade do desenho. Decisões do arquiteto (Claude). Quem implementar e achar um problema avisa antes de mudar o desenho.
 
+## Decisão final: um plano por tentativa (05/11/2026)
+
+O app usa `POST /preapproval_plan` com um plano novo para cada tentativa, e abre o `init_point` desse plano. Não envia `payer_email` e não chama `POST /preapproval`.
+
+**Por quê, com prova na conta de teste:** a assinatura sem plano (`status: pending`) trava quem digita outro e-mail ("Seu e-mail não corresponde ao da assinatura"), e `POST /preapproval` recusa e-mail que não existe no Mercado Pago (`User bad request`). O link do plano não pede e-mail ao nosso servidor, aceitou pagamento sem conta e continua identificando a tentativa, porque cada link é único. Isso resolve o campo de e-mail na raiz, em vez de só escondê-lo.
+
+**Desvio consciente:** o guia oficial do plugin diz para não criar um plano por assinante, pensando em plano reutilizável. Aqui o plano é só o link individual da tentativa. A API aceitou tudo o que precisamos. Se o Mercado Pago limitar isso, a saída é voltar à assinatura pendente com o e-mail da conta.
+
+Provado no plano por tentativa:
+
+- Pagamento sem conta, com e-mail qualquer: assinatura `authorized`, 1 fatura `processed`, pagamento `approved`.
+- A assinatura nasce com `external_reference: null`, `payer_email: null` e `preapproval_plan_id` preenchido. `GET /preapproval/search?preapproval_plan_id=<id>` acha a assinatura. Fatura e pagamento trazem o `external_reference` do plano.
+- `PUT /preapproval/{id}` com `{external_reference}` grava a referência na assinatura já paga.
+- `PUT /preapproval_plan/{id}` com novo valor passa para a assinatura ligada. `PUT /preapproval/{id}` com valor também funciona. Numa rodada, um `PUT` na assinatura logo depois de um `PUT` no plano voltou ao valor do plano: sempre reler e repetir até bater.
+- `frequency: 12` é aceito no plano.
+- Plano sem assinante, ou com assinatura já cancelada: fecha com `PUT /preapproval_plan/{id}` e `{status:"cancelled"}`.
+- Plano com assinatura `authorized` **não fecha** (400 `bad_request`), então o link de quem pagou continua aberto. Um segundo pagamento no mesmo link precisa ser tratado (ver sincronização).
+
+## Fatos provados na API (05/11/2026, conta de teste)
+
+Valem mais que a documentação quando as duas discordam.
+
+- Cancelar exige `status: "cancelled"`. `canceled`, como a documentação escreve, devolve 400 (`Invalid preapproval status param`). Cancelar uma assinatura já cancelada também devolve 400 (`You can not modify a cancelled preapproval`): reler `/preapproval/{id}` e considerar concluído quando a referência e a conta conferirem e o estado for `cancelled`.
+- `GET /preapproval/search` **ignora** o parâmetro `external_reference` e devolve as assinaturas do vendedor. Regra: buscar por `preapproval_plan_id` e filtrar por `preapproval_plan_id` exato e `collector_id` no nosso código.
+- `POST /preapproval` responde `payer_email` vazio e preenche `payer_id`. `init_point` vem com `&activation=true`. `frequency: 12` é aceito. Antes da 1ª cobrança, `summarized` pode ser `{}` ou trazer campos nulos; tratar `charged_quantity: null` como zero.
+- `PUT /preapproval/{id}` com `auto_recurring.transaction_amount` funciona em assinatura pendente e autorizada. Em autorizada, atualizar valor e `reason` não pede nova aprovação, não muda `next_payment_date`, e repetir o mesmo valor devolve 200.
+- `POST /preapproval` recusa com 400: `User bad request` para e-mail de teste inexistente e `Both payer and collector must be real or test users` para e-mail real com token de teste.
+- Fatura (`/authorized_payments/search?preapproval_id=` e `/authorized_payments/{id}`): `id` numérico, `preapproval_id`, `type`, `status`, `date_created`, `last_modified`, `transaction_amount`, `currency_id`, `reason`, `external_reference`, `payment{id,status,status_detail}`, `retry_attempt`, `debit_date`, `payment_method_id`. Não traz `collector_id`. `limit` máximo é 12 (`limit=20` ou mais devolve 400): paginar com `limit=12&offset=`.
+- Pagamento (`/v1/payments/{id}`) herda o `external_reference` da assinatura e traz `collector_id`. `operation_type` veio `regular_payment`, então não serve para reconhecer recorrência.
+- Pagamento sem conta no link da assinatura pendente (`preapproval_id`) foi aprovado com cartão de teste: virou `authorized`, com fatura `processed` e pagamento `approved`. O pagador do pagamento tem id diferente do `payer_id` da assinatura.
+- `PUT` de `auto_recurring.transaction_amount` e `reason` funciona em assinatura `authorized`, sem pedir nada ao comprador, e `next_payment_date` não muda. Repetir o mesmo valor devolve 200.
+- Cancelar assinatura `authorized` funciona. Cancelar de novo devolve 400 (`You can not modify a cancelled preapproval`), e voltar de `cancelled` para `authorized` devolve 400 (`Invalid transition`): cancelada é final, e o nosso cancelar precisa tratar esse 400 como já cancelada depois de reler o estado.
+- No checkout da assinatura pendente, pagar sem conta com e-mail diferente do `payer_email` é bloqueado: "Seu e-mail não corresponde ao da assinatura". É essa a regra cortada na documentação ("durante o processo de pagamento, validam...").
+- `POST /preapproval_plan` aceita e devolve `external_reference`, embora a documentação não liste o campo na entrada.
+
 ## Regras que não podem ser quebradas
 
 1. O app só informa `plano`. Preço, moeda, frequência, e-mail, id da conta e status vêm do servidor.
@@ -17,27 +52,25 @@ Fonte da verdade do desenho. Decisões do arquiteto (Claude). Quem implementar e
 
 1. App: `POST functions/v1/assinatura` com `{acao:"criar", plano}`.
 2. Servidor: confere sessão e e-mail confirmado, e chama `iniciar_contratacao()`, que decide sob trava por conta.
-3. Servidor: `POST /preapproval` com `status: "pending"`, `payer_email` da conta, `external_reference` igual ao id da contratação, `auto_recurring` montado no banco e `back_url`.
-4. Servidor grava `mp_preapproval_id` e `init_point`, e devolve `{init_point, contratacao_id}`.
+3. Servidor: `POST /preapproval_plan` com `reason`, `external_reference` igual ao id da contratação, `auto_recurring` montado no banco e `back_url`. Sem e-mail.
+4. Servidor grava `mp_plano_id` e `init_point`, e devolve `{init_point, contratacao_id}`. `mp_preapproval_id` só existe depois que alguém paga.
 5. App confere o domínio, marca `caderninho-pagando` e abre o `init_point`.
 6. Mercado Pago volta ao `back_url`. App mostra "Estamos confirmando sua assinatura." e chama `conferir` com intervalos crescentes, até 90 segundos.
 7. Webhook e `conferir` chamam `sincronizarContratacao()`, que lê o Mercado Pago, grava cobranças e aplica o estado.
 8. `minha_situacao()` devolve plano, estado, validade, próxima cobrança e histórico.
 
-## Corpo do `POST /preapproval`
+## Corpo do `POST /preapproval_plan`
 
 ```json
 {
   "reason": "Caderninho de Fiado: 1º mês R$ 14,90, depois R$ 19,90/mês",
   "external_reference": "<id da contratacao>",
-  "payer_email": "<e-mail do Supabase Auth>",
   "auto_recurring": { "frequency": 1, "frequency_type": "months", "transaction_amount": 14.90, "currency_id": "BRL" },
-  "back_url": "<primeiro endereço https de APP_URLS>",
-  "status": "pending"
+  "back_url": "<primeiro endereço https de APP_URLS>"
 }
 ```
 
-Anual: `frequency: 12`, valor de `planos.anual`, sem promoção. Sem `start_date`: a 1ª cobrança acontece ao concluir o checkout. A API não documenta idempotência em `/preapproval`, então a proteção é nossa: mesma tentativa, mesmo `external_reference`, e busca antes de recriar.
+Anual: `frequency: 12`, valor de `planos.anual`, sem promoção. Sem `start_date`: a 1ª cobrança acontece ao concluir o checkout. Plano criado cuja resposta se perdeu não gera cobrança, porque ninguém recebeu o link: basta criar outro.
 
 ## Banco (`202611060001_assinatura_recorrente.sql`)
 
@@ -55,7 +88,8 @@ Só acrescenta. RLS ligado e sem acesso direto de `anon` e `authenticated` nas t
 | `valor_inicial`, `valor_recorrente` | numeric(10,2) | preço gravado na contratação |
 | `moeda` | text | `BRL` |
 | `estado` | text | ver máquina de estados |
-| `mp_preapproval_id` | text unique | |
+| `mp_plano_id` | text unique | plano da tentativa, gravado ao criar |
+| `mp_preapproval_id` | text unique | preenchido quando alguém paga |
 | `mp_status`, `mp_atualizado_em` | text, timestamptz | último estado lido e `last_modified` |
 | `init_point` | text | link da tentativa |
 | `proxima_cobranca`, `autorizada_em`, `cancelada_em`, `sincronizada_em` | timestamptz | |
@@ -76,12 +110,12 @@ Só acrescenta. RLS ligado e sem acesso direto de `anon` e `authenticated` nas t
   - `plano_indisponivel`: plano desligado.
   - `limite`: 10 tentativas em 1 hora.
   - `ja_ativa`: existe contratação `ativa` ou `aguardando_pagamento`.
-  - `substituir` (com `id` e `mp_preapproval_id`): existe `falha_pagamento`, `pausada`, ou `checkout_pendente` vencida ou com plano ou preço diferente. O servidor cancela no Mercado Pago, chama `fechar_contratacao` e chama `iniciar_contratacao` de novo. Sem cancelamento confirmado não nasce outra.
+  - `substituir` (com `id` e `mp_preapproval_id`): existe `falha_pagamento`, `pausada`, ou `checkout_pendente` vencida ou com plano ou preço diferente. O servidor primeiro sincroniza (a pessoa pode ter pagado). Se seguir sem pagamento, fecha o plano no Mercado Pago. Se houver assinatura, cancela ela. Depois chama `fechar_contratacao` e `iniciar_contratacao` de novo. Sem fechamento confirmado não nasce outra.
   - `reusar` (com `id` e `init_point`): `checkout_pendente` válida, com mesmo plano e mesmo preço.
   - `em_andamento`: `checkout_pendente` sem `init_point` criada há menos de 20 s.
-  - `retomar` (com os dados da tentativa): `checkout_pendente` sem `init_point` há 20 s ou mais. O servidor busca por `external_reference` antes de criar de novo.
+  - `retomar` (com os dados da tentativa): `checkout_pendente` sem `init_point` há 20 s ou mais. O servidor cria outro plano para a mesma tentativa; o anterior, se existir, não chegou a ninguém.
   - `criar` (com os dados da nova tentativa).
-- `gravar_checkout(p_id, p_mp_id, p_init_point, p_mp_status)`.
+- `gravar_checkout(p_id, p_mp_plano_id, p_init_point)`.
 - `fechar_contratacao(p_id, p_estado)`: aceita só `abandonada` e `cancelada`.
 - `aplicar_preapproval(p_id, p_mp_id, p_status, p_ultima_mudanca, p_proxima)`: aplica a máquina de estados e devolve o estado final, mais `duplicada` e `cancelar_no_mp`.
 - `registrar_cobranca(p_id, p_contratacao, p_pagamento, p_valor, p_estado, p_mp_status, p_pag_status, p_debitada)`: idempotente.
@@ -100,7 +134,7 @@ Estados internos ficam em `contratacoes.estado`. `FREE` e `EXPIRED` não são li
 | `ativa` | `ACTIVE` | MP `authorized`, última cobrança aprovada | até `pago_ate` + 3 dias |
 | `falha_pagamento` | `PAYMENT_FAILED` | MP `authorized`, última cobrança recusada | até `pago_ate` + 3 dias |
 | `pausada` | `PAUSED` | MP `paused` | até `pago_ate` |
-| `cancelada` | `CANCELED` | MP `cancelled` ou `canceled` | até `pago_ate` |
+| `cancelada` | `CANCELED` | MP `cancelled` | até `pago_ate` |
 | `encerrada` | | MP `finished` ou `expired` | até `pago_ate` |
 | `abandonada` | | tentativa substituída ou vencida | não |
 | sem contratação viva, `pago_ate` no passado | `EXPIRED` | | não |
@@ -129,25 +163,27 @@ Período: `interval '1 month'` para mensal, `'12 months'` para anual.
 
 ## Promoção
 
-R$ 14,90 só na primeira mensal da conta. Disponível enquanto não houver cobrança mensal aprovada nem `compras` mensal aprovada. Depois da 1ª cobrança aprovada, se `auto_recurring.transaction_amount` for menor que `valor_recorrente`, `PUT /preapproval/{id}` com `auto_recurring.transaction_amount`, `auto_recurring.currency_id` e novo `reason`. Falhou: registra e tenta na próxima sincronização.
+R$ 14,90 só na primeira mensal da conta. Disponível enquanto não houver cobrança mensal aprovada nem `compras` mensal aprovada. Depois da 1ª cobrança aprovada, se `auto_recurring.transaction_amount` da assinatura for menor que `valor_recorrente`: `PUT /preapproval_plan/{id}` com o valor novo, relê a assinatura e, se não bater, `PUT /preapproval/{id}` com valor e `reason`. Falhou ou não bateu: registra e repete na próxima sincronização.
 
 ## Regra de cobrança aprovada
 
-Vale como aprovada só se: `status` da fatura `processed`, `payment.status` igual a `approved`, moeda `BRL`, valor maior ou igual ao menor entre `valor_inicial` e `valor_recorrente`, e a assinatura pertencer à contratação (`external_reference`, `collector_id`). Campos conhecidos da API, vistos em 04/11: `id`, `preapproval_id`, `type`, `status`, `transaction_amount`, `retry_attempt`, `debit_date`, `date_created`, `payment.id`, `payment.status`, `payment.status_detail`. Em assinatura, `summarized` (não `summary`).
+Vale como aprovada só se: `status` da fatura `processed`, `payment.status` igual a `approved`, moeda `BRL`, valor maior ou igual ao menor entre `valor_inicial` e `valor_recorrente`, `preapproval_id` da fatura igual ao da assinatura, `external_reference` da fatura igual ao id da contratação, e a assinatura pertencer à contratação pelo `preapproval_plan_id` e ao `collector_id` certo. Campos conhecidos da API, vistos em 04/11 e 05/11: `id`, `preapproval_id`, `type`, `status`, `transaction_amount`, `retry_attempt`, `debit_date`, `date_created`, `payment.id`, `payment.status`, `payment.status_detail`. Em assinatura, `summarized` (não `summary`).
 
 ## `sincronizarContratacao(config, contratacao)`
 
-1. Lê `GET /preapproval/{id}`. Sem id guardado, busca `GET /preapproval/search?external_reference=<id>`.
-2. Confere `external_reference`, `collector_id` e moeda. Divergiu: não aplica e registra.
-3. Se não estiver `pending`, lê `GET /authorized_payments/search?preapproval_id=<id>` e chama `registrar_cobranca` para cada fatura.
-4. Chama `aplicar_preapproval`. Se vier `cancelar_no_mp`, cancela no Mercado Pago.
-5. Ajusta o valor da promoção se precisar.
+1. Busca `GET /preapproval/search?preapproval_plan_id=<mp_plano_id>` e filtra por `preapproval_plan_id` exato e `collector_id`. Com `mp_preapproval_id` guardado, relê também `GET /preapproval/{id}`. Nenhuma assinatura: continua `checkout_pendente`.
+2. Escolhe a assinatura da contratação: a guardada ou, sem ela, a `authorized` mais antiga. Se houver outra `authorized` no mesmo plano (o link foi pago duas vezes), cancela a mais nova no Mercado Pago e registra em log. A cobrança dela conta para a validade, então nada se perde. Devolver o valor é decisão humana.
+3. Grava `external_reference` na assinatura escolhida com `PUT`, se vier vazio. Falha aqui não impede o resto.
+4. Se não estiver `pending`, lê `GET /authorized_payments/search?preapproval_id=<id>&limit=12&offset=<n>`, página por página, confere o `external_reference` da fatura e chama `registrar_cobranca` para cada uma. Faz isso também para a assinatura duplicada.
+5. Chama `aplicar_preapproval`. Se vier `cancelar_no_mp`, cancela no Mercado Pago.
+6. Ajusta o valor da promoção se precisar.
+7. Em contratação `cancelada` ou `abandonada`, tenta fechar o plano. Falha não é erro.
 
 ## Função `assinatura`
 
 - `criar`: fluxo acima. Respostas de erro: `pedido`, `sem_login`, `insufficient_aal`, `sem_email` (conta sem e-mail confirmado), `ja_ativa` (409), `em_andamento` (409), `limite` (429), `plano_indisponivel` (409), `mp_falhou` (502), `config` (500).
 - `conferir`: sincroniza a contratação viva e as abandonadas das últimas 48 h, com pausa mínima de 4 s por contratação. Sem nenhuma contratação na conta, usa `consultarPagamentos` antigo. Responde `{situacao}`.
-- `cancelar`: acha a contratação viva da própria conta, sem receber id do app, e faz `PUT /preapproval/{id}` com `{status}`. Depois sincroniza e responde `{situacao}`.
+- `cancelar`: acha a contratação viva da própria conta, sem receber id do app, faz `PUT /preapproval/{id}` com `{status:"cancelled"}` e fecha o plano para matar o link. Depois sincroniza e responde `{situacao}`.
 
 ## Função `mp-webhook`
 
@@ -156,10 +192,10 @@ Vale como aprovada só se: `status` da fatura `processed`, `payment.status` igua
 3. Valida `x-signature` com o manifesto `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, HMAC-SHA256 em hexadecimal, comparação em tempo constante. Parte ausente sai do manifesto, como no SDK oficial 3.6.1. Tenta o id como veio e, se diferente, em minúsculas. Sem janela de tempo: repetir um aviso só provoca nova leitura. Falhou: 401.
 4. `registrar_evento`.
 5. Por tópico:
-   - `subscription_preapproval`: `GET /preapproval/{id}` e sincroniza.
-   - `subscription_authorized_payment`: `GET /authorized_payments/{id}`, pega `preapproval_id` e sincroniza.
-   - `payment`: `GET /v1/payments/{id}`. `external_reference` em uuid: sincroniza a contratação e trata estorno. `mensal:<uuid>` ou `anual:<uuid>`: caminho antigo de `compras`.
-   - Outro tópico: `ignorado`, 200.
+   - `subscription_preapproval`: `GET /preapproval/{id}`, acha a contratação por `preapproval_plan_id` (ou `external_reference`) e sincroniza.
+   - `subscription_authorized_payment`: `GET /authorized_payments/{id}`, acha a contratação pelo `external_reference` da fatura e sincroniza. A conta recebedora é conferida na assinatura, porque a fatura não traz `collector_id`.
+   - `payment`: `GET /v1/payments/{id}`. `external_reference` em uuid: sincroniza a contratação e trata estorno. `mensal:<uuid>` ou `anual:<uuid>`: caminho antigo de `compras`. Não usar `operation_type` para reconhecer cobrança recorrente.
+   - Outro tópico, incluindo `subscription_preapproval_plan`: `ignorado`, 200.
 6. Recurso inexistente (404): `ignorado`, 200. Falha temporária: `erro`, 502, e o Mercado Pago reenvia.
 
 ## Função `mp-reconciliar`
@@ -184,7 +220,7 @@ Mantém `agora`, `teste_ate`, `pago_ate`, `plano`, `liberado_ate`, `preco`, `pre
 
 `carregarConfig()` exige `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `MP_ACCESS_TOKEN`, `MP_COLLECTOR_ID` e `APP_URLS`. `mp-webhook` exige também `MP_WEBHOOK_SECRET`. `MP_API_URL` é opcional, só para testes, com padrão `https://api.mercadopago.com`.
 
-`MP_COLLECTOR_ID` é o id da conta que recebe em cada ambiente. Toda assinatura, fatura e pagamento lidos ou criados têm o `collector_id` conferido. Divergiu em `criar`: cancela o que nasceu, responde `config` e registra. É isso que impede token de teste em produção e o contrário.
+`MP_COLLECTOR_ID` é o id da conta que recebe em cada ambiente. Todo plano, assinatura e pagamento lidos ou criados têm o `collector_id` conferido. Divergiu em `criar`: cancela o que nasceu, responde `config` e registra. É isso que impede token de teste em produção e o contrário.
 
 `back_url` usa só endereços `https` de `APP_URLS`. `localhost` nunca vai ao Mercado Pago.
 
@@ -207,13 +243,13 @@ Mantém `agora`, `teste_ate`, `pago_ate`, `plano`, `liberado_ate`, `preco`, `pre
 | 14 | Erro 400 do Mercado Pago | `mp_falhou` e causa no log, sem dados pessoais |
 | 15 | Erro 401 ou 403 | Igual ao 5 |
 | 16 | Erro 429 ou 500 | `mp_falhou`, tentar de novo. Em aviso, 502 para reenvio |
-| 17 | Criou, mas a resposta não chegou | `retomar` busca por `external_reference` antes de criar |
+| 17 | Criou, mas a resposta não chegou | Plano sem link entregue não cobra ninguém. `retomar` cria outro |
 | 18 | Já tem assinatura | `ja_ativa`, app mostra o plano |
 | 19 | Banco não atualiza | Erro antes do 200 faz o Mercado Pago reenviar |
 | 20 | Troca de aparelho | Plano vem de `minha_situacao()` |
 | 21 | Cancelada no Mercado Pago | Aviso `subscription_preapproval` ou conferência |
 | 22 | Preço muda com tentativa aberta | `substituir`, pois o preço não bate |
-| 23 | E-mail ausente ou sem confirmar | `sem_email`, app pede para confirmar |
+| 23 | E-mail ausente ou sem confirmar | `sem_email`, app pede para confirmar. O e-mail não vai ao Mercado Pago |
 | 24 | App atualiza no checkout | Marca em `localStorage` sobrevive à atualização |
 | 25 | Publicação diferente do local | Teste com as funções reais em Deno e no projeto de teste |
 

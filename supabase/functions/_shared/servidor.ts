@@ -5,6 +5,8 @@ export type Config = {
   anonKey: string;
   serviceKey: string;
   mpToken: string;
+  mpCollectorId: string;
+  mpApiUrl: string;
   appUrls: URL[];
 };
 
@@ -14,8 +16,8 @@ export class MercadoPagoError extends Error {
     this.name = "MercadoPagoError";
   }
 }
-/* conta com proteção em 2 etapas, mas o token ainda não passou pelo código (aal1) */
 export class CodigoPendenteError extends Error {}
+export class EmailPendenteError extends Error {}
 
 function lerAal(token: string) {
   try {
@@ -32,37 +34,35 @@ export function carregarConfig(): Config | null {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const mpToken = Deno.env.get("MP_ACCESS_TOKEN");
+  const mpCollectorId = Deno.env.get("MP_COLLECTOR_ID");
   const appUrls = (Deno.env.get("APP_URLS") ?? "")
-    .split(/[\n,]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => {
-      try { return new URL(item); } catch { return null; }
-    })
+    .split(/[\n,]/).map((item) => item.trim()).filter(Boolean)
+    .map((item) => { try { return new URL(item); } catch { return null; } })
     .filter((item): item is URL => item !== null);
-  if (!supabaseUrl || !anonKey || !serviceKey || !mpToken || appUrls.length === 0) return null;
-  return { supabaseUrl, anonKey, serviceKey, mpToken, appUrls };
+  const mpApiUrl = (Deno.env.get("MP_API_URL") ?? "https://api.mercadopago.com").replace(/\/$/, "");
+  // back_url só aceita https; endereço http em APP_URLS serve apenas para o navegador de desenvolvimento.
+  if (!supabaseUrl || !anonKey || !serviceKey || !mpToken || !mpCollectorId || !appUrls.some((url) => url.protocol === "https:")) return null;
+  try { if (new URL(mpApiUrl).protocol !== "http:" && new URL(mpApiUrl).protocol !== "https:") return null; }
+  catch { return null; }
+  return { supabaseUrl, anonKey, serviceKey, mpToken, mpCollectorId, mpApiUrl, appUrls };
 }
 
 export function responderJson(req: Request, config: Config | null, status: number, body: unknown) {
   const origin = req.headers.get("origin");
   const allowed = origin && config?.appUrls.some((url) => url.origin === origin);
-  const headers = new Headers({ "Content-Type": "application/json; charset=utf-8" });
+  const headers = new Headers({ "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
   if (allowed) {
     headers.set("Access-Control-Allow-Origin", origin);
     headers.set("Vary", "Origin");
-    headers.set("Access-Control-Allow-Headers", "authorization, apikey, x-client-info, content-type");
+    headers.set("Access-Control-Allow-Headers", "authorization, apikey, x-client-info, content-type, x-reconciliar-chave");
     headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
   }
-  const responseBody = status === 204 || status === 304 ? null : JSON.stringify(body);
-  return new Response(responseBody, { status, headers });
+  return new Response(status === 204 || status === 304 ? null : JSON.stringify(body), { status, headers });
 }
 
 export function responderOptions(req: Request, config: Config | null) {
   const origin = req.headers.get("origin");
-  if (!origin || !config?.appUrls.some((url) => url.origin === origin)) {
-    return responderJson(req, config, 403, { erro: "pedido" });
-  }
+  if (!origin || !config?.appUrls.some((url) => url.origin === origin)) return responderJson(req, config, 403, { erro: "pedido" });
   return responderJson(req, config, 204, null);
 }
 
@@ -75,82 +75,94 @@ export async function autenticar(req: Request, config: Config) {
   if (!response.ok) return null;
   const user = await response.json();
   if (!isUuid(user?.id) || typeof user?.email !== "string") return null;
-  // O token já foi conferido pelo /auth/v1/user acima; aqui só se lê o nível dele.
+  if (!(user.email_confirmed_at || user.confirmed_at)) throw new EmailPendenteError();
   const temCodigo = Array.isArray(user?.factors) && user.factors.some((f: any) => f?.status === "verified");
   if (temCodigo && lerAal(authorization.replace(/^Bearer\s+/i, "")) !== "aal2") throw new CodigoPendenteError();
   return { id: user.id as string, email: user.email as string, authorization };
 }
 
+/* Só a mensagem curta do erro, sem e-mail nem nada parecido com token. */
+function limparMotivo(raw: string) {
+  let texto = raw;
+  try { const j = JSON.parse(raw); texto = String(j?.message ?? j?.error ?? ""); }
+  catch { texto = ""; }
+  return texto.replace(/[^\s@]+@[^\s@]+/g, "[e-mail]").replace(/(APP_USR|TEST)-[\w-]+/g, "[token]").slice(0, 160);
+}
+
 export async function chamarMercadoPago(config: Config, path: string, init: RequestInit = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort("timeout"), 15000);
   try {
-    const response = await fetch(`https://api.mercadopago.com${path}`, {
+    const response = await fetch(`${config.mpApiUrl}${path}`, {
       ...init,
-      headers: {
-        Authorization: `Bearer ${config.mpToken}`,
-        "Content-Type": "application/json",
-        ...(init.headers ?? {}),
-      },
+      signal: init.signal ?? controller.signal,
+      headers: { Authorization: `Bearer ${config.mpToken}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
     });
-    const raw = await response.text();
-    let data: any = null;
-    try { data = raw ? JSON.parse(raw) : null; } catch { /* resposta fora de JSON */ }
     if (!response.ok) {
-      const causas = Array.isArray(data?.cause) ? data.cause.map((c: any) => c?.description ?? c?.code) : [];
-      const motivo = [data?.message, data?.error, ...causas].filter(Boolean).join(" | ").slice(0, 300);
-      throw new MercadoPagoError(`Mercado Pago respondeu ${response.status} em ${path.split("?")[0]}: ${motivo}`, response.status);
+      const motivo = limparMotivo(await response.text().catch(() => ""));
+      console.error("Mercado Pago recusou o pedido", { status: response.status, caminho: path.split("?")[0], motivo });
+      throw new MercadoPagoError(`Mercado Pago respondeu ${response.status} em ${path.split("?")[0]}`, response.status);
     }
-    return data;
+    const raw = await response.text();
+    try { return raw ? JSON.parse(raw) : null; }
+    catch { throw new MercadoPagoError("Resposta inválida do Mercado Pago", response.status); }
   } catch (error) {
     if (error instanceof MercadoPagoError) throw error;
+    if (controller.signal.aborted) throw new MercadoPagoError("Tempo esgotado ao falar com o Mercado Pago");
     throw new MercadoPagoError("Falha de comunicação com o Mercado Pago");
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+export async function rpcService(config: Config, nome: string, argumentos: Record<string, unknown> = {}) {
+  const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${encodeURIComponent(nome)}`, {
+    method: "POST",
+    headers: { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(argumentos),
+  });
+  if (!response.ok) {
+    const motivo = limparMotivo(await response.text().catch(() => ""));
+    throw new Error(`RPC ${nome} falhou com status ${response.status}: ${motivo}`);
+  }
+  return await response.json();
 }
 
 export async function minhaSituacao(config: Config, authorization: string) {
   const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/minha_situacao`, {
-    method: "POST",
-    headers: {
-      apikey: config.anonKey,
-      Authorization: authorization,
-      "Content-Type": "application/json",
-    },
-    body: "{}",
+    method: "POST", headers: { apikey: config.anonKey, Authorization: authorization, "Content-Type": "application/json" }, body: "{}",
   });
-  if (!response.ok) throw new Error("Falha ao consultar situação");
+  if (!response.ok) throw new Error(`Falha ao consultar situação (${response.status})`);
   return await response.json();
 }
 
-export function urlDeVolta(config: Config, candidata: unknown) {
-  const primeira = config.appUrls[0].href;
-  if (typeof candidata !== "string") return primeira;
-  try {
-    const url = new URL(candidata);
-    return config.appUrls.some((permitida) => permitida.href === url.href) ? url.href : primeira;
-  } catch {
-    return primeira;
+export function urlDeVolta(config: Config, candidata?: unknown) {
+  if (typeof candidata === "string") {
+    try {
+      const url = new URL(candidata);
+      const ok = config.appUrls.find((permitida) => permitida.href === url.href && url.protocol === "https:");
+      if (ok) return ok.href;
+    } catch { /* usa o primeiro endereço https configurado */ }
   }
+  return config.appUrls.find((url) => url.protocol === "https:")?.href ?? "";
 }
 
 export async function pegarPrecos(config: Config) {
-  const response = await fetch(`${config.supabaseUrl}/rest/v1/planos?select=id,valor&ativo=eq.true&id=in.(mensal,mensal_promo,anual)`, {
+  const response = await fetch(`${config.supabaseUrl}/rest/v1/planos?select=id,valor,meses,moeda,descricao&ativo=eq.true&id=in.(mensal,mensal_promo,anual)`, {
     headers: { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}` },
   });
-  if (!response.ok) throw new Error("Falha ao ler preços dos planos");
+  if (!response.ok) throw new Error(`Falha ao ler preços (${response.status})`);
   const linhas = await response.json();
-  const porId = new Map((Array.isArray(linhas) ? linhas : []).map((linha: any) => [String(linha.id), Number(linha.valor)]));
-  const ler = (id: string) => {
-    const valor = porId.get(id);
-    return Number.isFinite(valor) && valor > 0 ? valor : null;
+  const porId = new Map((Array.isArray(linhas) ? linhas : []).map((linha: any) => [String(linha.id), linha]));
+  const valor = (id: string) => {
+    const n = Number((porId.get(id) as any)?.valor);
+    return Number.isFinite(n) && n > 0 ? n : null;
   };
-  return { mensal: ler("mensal"), promo: ler("mensal_promo"), anual: ler("anual") };
+  return { mensal: valor("mensal"), promo: valor("mensal_promo"), anual: valor("anual"), linhas: porId };
 }
 
 export async function registrarCompra(config: Config, pagamentoId: string, userId: string, valor: number, aprovado: boolean, plano: "mensal" | "anual") {
-  const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/registrar_compra`, {
-    method: "POST",
-    headers: { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ p_payment_id: pagamentoId, p_user: userId, p_valor: valor, p_aprovado: aprovado, p_plano: plano }),
+  return await rpcService(config, "registrar_compra", {
+    p_payment_id: pagamentoId, p_user: userId, p_valor: valor, p_aprovado: aprovado, p_plano: plano,
   });
-  if (!response.ok) throw new Error("Falha ao registrar compra");
-  return await response.json();
 }

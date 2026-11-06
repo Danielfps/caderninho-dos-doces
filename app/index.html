@@ -704,7 +704,7 @@ function restaurar(txt){
 
 /* ---------- minha conta e assinatura ----------
    Quem abre o app precisa criar a conta (nome, e-mail e senha) ou entrar. Cada conta tem 3 dias grátis e, depois,
-   um plano pago pelo Mercado Pago (mensal ou anual, pagamento único). Quem decide se a pessoa pode usar é o servidor (minha_situacao, com o relógio
+   um plano pago pelo Mercado Pago (mensal ou anual, com renovação automática). Quem decide se a pessoa pode usar é o servidor (minha_situacao, com o relógio
    dele); o app guarda a última resposta (caderninho-acesso) para continuar abrindo sem internet.
    A conta usa o Supabase Auth só com fetch, sem biblioteca. Como ligar: docs/conta.md e docs/assinatura.md.
    As vendas, clientes e produtos continuam só no celular: nada disso vai para o servidor.
@@ -745,7 +745,11 @@ const ERROS={
   reauthentication_needed:'Por segurança, saia da conta e entre de novo antes de trocar a senha.',
   insufficient_aal:'Digite o código de segurança primeiro.',
   signup_disabled:'Os cadastros estão fechados no momento.',
-  ja_paga:'Você já tem o Caderninho pago por mais tempo. Dá para renovar na última semana.',
+  ja_ativa:'Você já tem uma assinatura. Confira os dados da sua conta.',
+  em_andamento:'Estamos preparando sua assinatura. Tente de novo em instantes.',
+  limite:'Muitas tentativas em pouco tempo. Espere um pouco e tente de novo.',
+  plano_indisponivel:'Este plano não está disponível agora. Escolha outro plano.',
+  sem_email:'Confirme o e-mail da sua conta antes de assinar.',
   jwt_vencido:'Sua entrada na conta venceu. Entre de novo.',
   mp_falhou:'O Mercado Pago não respondeu agora. Tente de novo daqui a pouco.',
   config:'O Caderninho ainda não está ligado direito. Fale com quem cuida do app.',
@@ -770,7 +774,7 @@ function codigoErro(j,status){
 async function chamar(caminho,{metodo='POST',corpo,token,busca,espera=15e3}={}){
   const url=caminho+(busca?'?'+new URLSearchParams(busca):'');
   let r;
-  if(modoTeste())r=teste.responder(metodo,url,corpo,token);
+  if(modoTeste())r=await teste.responder(metodo,url,corpo,token);
   else if(!configurado())throw new ErroConta('config');
   else{
     const h={apikey:CONTA_CHAVE,'Content-Type':'application/json'};if(token)h.Authorization='Bearer '+token;
@@ -879,7 +883,7 @@ function lerAcesso(){acesso=lerJSON(KEY_ACESSO)}
 function guardarAcesso(a){acesso=a||null;if(acesso)LS.set(KEY_ACESSO,JSON.stringify(acesso));else LS.del(KEY_ACESSO)}
 const meuAcesso=()=>acesso&&acesso.uid&&acesso.uid===meuId()?acesso:null;
 const agoraServ=()=>Date.now()+((acesso&&acesso.dif)||0);
-/* plano pago (mensal ou anual, pagamento único no Pix ou no cartão) ainda valendo */
+/* plano pago (mensal ou anual) ainda valendo */
 const pagoAgora=()=>{const a=meuAcesso();return !!(a&&a.pago_ate&&a.pago_ate>agoraServ())};
 const nomePlano=a=>a&&a.plano==='anual'?'plano anual':'plano mensal';
 /* preços: os da conta (o servidor diz se ela ainda tem o 1º mês promocional) ou, antes de entrar, os da tabela de planos.
@@ -890,7 +894,8 @@ const lerData=s=>s?Date.parse(String(s).replace(/(\.\d{3})\d+/,'$1'))||0:0;
 function situacaoDe(j,uid){
   const ag=lerData(j.agora);
   return{uid,liberado_ate:lerData(j.liberado_ate),teste_ate:lerData(j.teste_ate),pago_ate:lerData(j.pago_ate)||null,plano:j.plano||null,
-    preco:Number(j.preco)||0,promo:Number(j.preco_promo)||0,anual:Number(j.preco_anual)||0,dif:ag?ag-Date.now():0,em:Date.now()};
+    preco:Number(j.preco)||0,promo:Number(j.preco_promo)||0,anual:Number(j.preco_anual)||0,assinatura:j.assinatura||null,
+    cobrancas:Array.isArray(j.cobrancas)?j.cobrancas.slice(0,6):[],conferir:!!j.conferir,dif:ag?ag-Date.now():0,em:Date.now()};
 }
 /* a última conferida falhou por falta de internet (modo avião, sem sinal, servidor sem resposta) */
 const semRede=()=>!!(erroAcesso&&erroAcesso.codigo==='sem_internet');
@@ -908,24 +913,24 @@ function estadoConta(){
   if(!a||Date.now()<a.em-36e5)return 'conferindo'; // ainda sem resposta do servidor, ou o relógio do celular voltou para trás
   return agoraServ()<liberadoAte(a)?'liberado':'assinar';
 }
-/* pergunta ao servidor; viaMP = pedir para ele conferir direto no Mercado Pago (depois de pagar).
-   pagamentoVolta = número do pagamento que o Mercado Pago pôs no endereço de volta (plano anual) */
-let pagamentoVolta='';
+/* pergunta ao servidor; viaMP pede sincronização da assinatura */
 async function verificarAcesso(viaMP){
   while(conferindo){const mesma=conferindoDe===meuId();await conferindo;if(mesma&&!viaMP)return estadoConta()} // outra conta: pergunta de novo
   const antes=estadoConta(),uid=meuId(),planoDe=x=>x?[x.plano,x.pago_ate].join('|'):'',planoAntes=planoDe(meuAcesso());
   let fim;conferindo=new Promise(r=>{fim=r});conferindoDe=uid;
   if(antes==='conferindo')render();
+  let pedirConferencia=false;
   try{
-    const j=viaMP?(await logado('functions/v1/assinatura',{corpo:Object.assign({acao:'conferir'},pagamentoVolta?{pagamento_id:pagamentoVolta}:{})})).situacao
+    const j=viaMP?(await logado('functions/v1/assinatura',{corpo:{acao:'conferir'}})).situacao
                  :await logado('rest/v1/rpc/minha_situacao',{corpo:{}});
     if(!j||!j.liberado_ate)throw new ErroConta('pedido');
-    if(uid&&meuId()===uid){guardarAcesso(situacaoDe(j,uid));erroAcesso=null} // trocou de conta no meio: descarta a resposta da outra
+    if(uid&&meuId()===uid){const nova=situacaoDe(j,uid);guardarAcesso(nova);erroAcesso=null;pedirConferencia=!viaMP&&nova.conferir&&!conferenciaSilenciosaFeita;if(pedirConferencia)conferenciaSilenciosaFeita=true} // trocou de conta no meio: descarta a resposta da outra
   }catch(e){if(meuId()===uid){erroAcesso=e;if(e.codigo==='sessao')toast(msgErro(e),true)}}
   conferindo=null;fim();
   const depois=estadoConta();
   if(depois!==antes||depois!=='liberado')render(); // não redesenha à toa: quem está digitando uma venda não perde nada
   else if(planoDe(meuAcesso())!==planoAntes)redesenharSeguro(); // pagou durante o teste grátis: tira o aviso e o botão de assinar
+  if(pedirConferencia)setTimeout(()=>verificarAcesso(true),0);
   return depois;
 }
 /* preços para mostrar antes de entrar (a tabela de planos é pública) */
@@ -943,19 +948,23 @@ function faltaTxt(ms){if(ms<=0)return 'acabou';const h=Math.ceil(ms/36e5);if(h<=
 function situacaoTxt(){
   const a=meuAcesso();if(!a)return['Conferindo…','neutra'];
   const ag=agoraServ();
-  if(pagoAgora())return[`${a.plano==='anual'?'Plano anual':'Plano mensal'}, vale até ${quando(a.pago_ate)}`,'good'];
+  if(a.assinatura?.estado==='falha_pagamento')return['Pagamento recusado','bad'];
+  if(a.assinatura?.estado==='aguardando_pagamento')return['Aguardando confirmação do pagamento','warn'];
+  if(a.assinatura?.estado==='pausada')return['Pausada','warn'];
+  if(a.assinatura?.estado==='cancelada')return[a.pago_ate?`Cancelada, vale até ${quando(a.pago_ate)}`:'Cancelada','neutra'];
+  if(pagoAgora())return[`${a.plano==='anual'?'Plano anual':'Plano mensal'}, ativa`,'good'];
   if(ag<a.teste_ate)return[`Teste grátis até ${quandoHora(a.teste_ate)}`,'warn'];
   return['Sem plano','bad'];
 }
-/* aviso no alto do Resumo: dias de teste ou plano acabando (o plano não renova sozinho) */
+/* aviso no alto do Resumo: cobrança recusada, teste ou validade antiga acabando */
 function bannerAssinatura(){
   const a=meuAcesso();if(!a)return '';const ag=agoraServ();
-  if(pagoAgora()){const f=a.pago_ate-ag;return f<=(a.plano==='anual'?7:3)*864e5?`<div class="banner aviso-pag"><span style="flex:1">Seu ${nomePlano(a)} acaba em ${quando(a.pago_ate)} (${faltaTxt(f)}).</span><button data-act="assinar">Pagar</button></div>`:''}
+  if(a.assinatura?.estado==='falha_pagamento')return `<div class="banner aviso-pag"><span style="flex:1">Não conseguimos cobrar sua assinatura.</span><button data-act="assinar">Assinar de novo</button></div>`;
+  if(pagoAgora()){if(a.assinatura&&['ativa','aguardando_pagamento','pausada'].includes(a.assinatura.estado))return '';const f=a.pago_ate-ag;return f<=7*864e5?`<div class="banner aviso-pag"><span style="flex:1">Seu ${nomePlano(a)} termina em ${quando(a.pago_ate)} (${faltaTxt(f)}).</span><button data-act="assinar">Assinar</button></div>`:''}
   if(ag<a.teste_ate)return `<div class="banner" data-gratis><span style="flex:1"><b>Teste grátis:</b> ${faltaTxt(a.teste_ate-ag)}.</span><button data-act="assinar">Assinar</button></div>`;
   return '';
 }
-/* os dois planos, para escolher. Pagamento único no Pix ou no cartão, pelo Mercado Pago, sem cobrança automática.
-   Mensal: 30 dias (1º mês promocional só uma vez por conta). Anual: 12 meses. */
+/* os planos recorrentes, definidos pelo servidor */
 let planoEscolhido='mensal';
 const economia=p=>p.mensal>0&&p.anual>0?Math.round((1-p.anual/(12*p.mensal))*100):0;
 function cartoesPlanos(){
@@ -964,13 +973,13 @@ function cartoesPlanos(){
     ?`<span class="big num">${brl(p.promo)}</span><span class="depois">no 1º mês, depois ${brl(p.mensal)} por mês</span>`
     :`<span class="big num">${p.mensal?brl(p.mensal):'…'}</span><span class="depois">por mês</span>`;
   return `<div class="planos" role="group" aria-label="Escolha o plano">
-    <button type="button" class="plano" data-act="assinPlano" data-v="mensal" ${sel('mensal')}><span class="lbl">Mensal</span>${mensal}<span class="muted small">No Pix ou no cartão. Vale por 30 dias e não renova sozinho.</span></button>
-    <button type="button" class="plano" data-act="assinPlano" data-v="anual" ${sel('anual')}>${eco>0?`<span class="pill good eco">Economize ${eco}%</span>`:''}<span class="lbl">Anual</span><span class="big num">${p.anual?brl(p.anual):'…'}</span><span class="depois">por 12 meses${p.anual?` (sai ${brl(r2(p.anual/12))} por mês)`:''}</span><span class="muted small">No Pix ou no cartão (dá para parcelar). Paga uma vez e não renova sozinho.</span></button>
+    <button type="button" class="plano" data-act="assinPlano" data-v="mensal" ${sel('mensal')}><span class="lbl">Mensal</span>${mensal}<span class="muted small">Tudo do Caderninho. Guardado na sua conta. Use em mais de um celular.</span><span class="muted small">Renova sozinho todo mês. Cancele quando quiser.</span></button>
+    <button type="button" class="plano" data-act="assinPlano" data-v="anual" ${sel('anual')}><span class="lbl">Anual</span><span class="big num">${p.anual?brl(p.anual):'…'}</span><span class="depois">por ano</span><span class="muted small">Tudo do Caderninho. Guardado na sua conta. Use em mais de um celular.</span><span class="muted small">Renova sozinho todo ano. Cancele quando quiser.</span></button>
   </div>`;
 }
 function ofertaTxt(){
-  const p=precos();if(!p.mensal)return 'Depois, plano mensal ou anual, no Pix ou no cartão.';
-  return `Depois, ${p.promo>0&&p.promo<p.mensal?`${brl(p.promo)} no 1º mês e ${brl(p.mensal)} por mês`:`${brl(p.mensal)} por mês`}${p.anual?`, ou ${brl(p.anual)} por ano`:''}. No Pix ou no cartão.`;
+  const p=precos();if(!p.mensal)return 'Escolha o plano mensal ou anual.';
+  return `${p.promo>0&&p.promo<p.mensal?`${brl(p.promo)} no 1º mês, depois ${brl(p.mensal)} por mês`:`${brl(p.mensal)} por mês`}${p.anual?`, ou ${brl(p.anual)} por ano`:''}. Renovação automática.`;
 }
 /* o "portão": o que aparece no lugar do caderninho quando a pessoa ainda não pode usar */
 function vPortao(est){
@@ -997,10 +1006,10 @@ function vPortao(est){
     <span class="selo">${IC.livro}</span>
     <h1>${a&&a.pago_ate?'Seu plano terminou':'Seu teste grátis acabou'}</h1>
     <p class="muted">Para continuar usando o Caderninho, escolha um plano. Suas contas estão guardadas e voltam assim que o pagamento for confirmado.</p>
+    ${a&&a.assinatura&&a.assinatura.estado==='falha_pagamento'?'<p class="aviso neutra">Não conseguimos cobrar sua assinatura. Você pode assinar de novo.</p>':''}
     ${semRede()?'<p class="aviso neutra">Você está sem internet agora. Se já pagou, ligue a internet e toque em “Já paguei, conferir”.</p>':''}
     ${cartoesPlanos()}
-    <button class="btn" data-act="assinIr">${rotuloPagar()}</button>
-    <p class="muted small" style="margin:0">O pagamento é pelo Mercado Pago. Não precisa ter conta lá.</p>
+    <button class="btn" data-act="assinIr">Assinar agora</button>
     <button class="btn soft" data-act="assinConferir">Já paguei, conferir</button>
     <button class="btn ghost" data-act="config">Guardar uma cópia das minhas contas</button>
     ${sair}
@@ -1063,17 +1072,26 @@ function formNome(){abrir(`<form><h1>Mudar meu nome</h1>
 function telaMinhaConta(){
   const u=sessao&&sessao.user;if(!u)return formEntrar();
   const nome=nomeDe(u),conf=!!(u.email_confirmed_at||u.confirmed_at),dois=!!fator2(),[st,cor]=situacaoTxt();
-  const a=meuAcesso(),renovar=pagoAgora()&&a.pago_ate-agoraServ()<=7*864e5; // o servidor deixa renovar na última semana
+  const a=meuAcesso(),sub=a&&a.assinatura&&a.assinatura.estado!=='checkout_pendente'?a.assinatura:null,estado=sub&&sub.estado; // tentativa não concluída não é assinatura
+  const rotuloEstado={ativa:'Ativa','aguardando_pagamento':'Aguardando confirmação do pagamento',falha_pagamento:'Pagamento recusado',pausada:'Pausada',cancelada:a&&a.pago_ate?`Cancelada, vale até ${quando(a.pago_ate)}`:'Cancelada'}[estado]||'Sem assinatura';
+  const cobrancas=(a&&a.cobrancas||[]).slice(0,6);
   abrir(`<h1 id="telaConta">Minha conta</h1>
   <div class="card" style="display:flex;align-items:center;gap:12px">${avatar(nome||u.email)}<span class="grow"><span class="name">${esc(nome||'Sem nome')}</span><span class="sub">${esc(u.email)}</span></span></div>
   <div class="list">
-    <div class="item"><span class="grow">Plano</span><span class="pill ${cor}">${esc(st)}</span></div>
+    <div class="item"><span class="grow">Plano atual</span><span class="pill ${cor}">${esc(sub?`Plano ${sub.plano==='anual'?'anual':'mensal'}`:a&&a.plano?nomePlano(a):'Nenhum')}</span></div>
+    <div class="item"><span class="grow">Situação</span><span class="pill ${estado==='ativa'?'good':estado==='falha_pagamento'?'bad':'neutra'}">${esc(rotuloEstado)}</span></div>
+    ${sub&&sub.proxima_cobranca&&['ativa','aguardando_pagamento'].includes(estado)?`<div class="item"><span class="grow">Próxima cobrança</span><span class="val">${esc(quando(lerData(sub.proxima_cobranca)))}${sub.valor?` · ${esc(brl(Number(sub.valor)))}`:''}</span></div>`:''}
+    ${sub&&sub.desde?`<div class="item"><span class="grow">Assinante desde</span><span class="val">${esc(quando(lerData(sub.desde)))}</span></div>`:''}
+    ${estado==='cancelada'&&a.pago_ate?`<div class="item"><span class="grow">Acesso até</span><span class="val">${esc(quando(a.pago_ate))}</span></div>`:''}
     <div class="item"><span class="grow">E-mail</span>${conf?'<span class="pill good">Confirmado</span>':'<span class="pill bad">Falta confirmar</span>'}</div>
     ${modoTeste()?'':`<div class="item"><span class="grow">Proteção em 2 etapas</span>${dois?'<span class="pill good">Ligada</span>':'<span class="pill neutra">Desligada</span>'}</div>`}
     ${u.created_at?`<div class="item"><span class="grow">Conta criada em</span><span class="val">${esc(quando(Date.parse(u.created_at)))}</span></div>`:''}
   </div>
-  ${pagoAgora()?(renovar?'<button class="btn soft" data-act="assinar">Renovar o plano</button>':''):'<button class="btn" data-act="assinar">Assinar o Caderninho</button>'}
-  ${LS.get(KEY_PAGANDO)?'<button class="btn soft" data-act="assinConferir">Já paguei, conferir</button>':''}
+  ${estado==='ativa'||estado==='aguardando_pagamento'||estado==='pausada'?'<button class="btn danger" data-act="assinCancelar">Cancelar assinatura</button>':''}
+  ${['ativa','aguardando_pagamento','pausada'].includes(estado)?'':'<button class="btn" data-act="assinar">Assinar agora</button>'}
+  ${cobrancas.length?`<div class="card"><b>Últimas cobranças</b><div class="list">${cobrancas.map(c=>`<div class="item"><span class="grow">${esc(quando(lerData(c.data||c.debitada_em)))}</span><span class="val">${esc(brl(Number(c.valor)||0))} · ${esc(c.estado==='aprovada'?'Aprovada':c.estado==='recusada'?'Recusada':c.estado==='estornada'?'Estornada':'Pendente')}</span></div>`).join('')}</div></div>`:''}
+  <a class="btn soft" href="https://www.mercadopago.com.br/subscriptions" target="_blank" rel="noopener">Gerenciar no Mercado Pago</a>
+  ${LS.get(KEY_PAGANDO)?'<button class="btn soft" data-act="assinConferir">Conferir assinatura</button>':''}
   ${conf?'':'<button class="btn" data-act="contaReenviar">Mandar o e-mail de confirmação de novo</button>'}
   ${blocoOutroCelular()}
   <button class="btn soft" data-act="contaNome">Mudar meu nome</button>
@@ -1115,53 +1133,58 @@ function tela2faChave(){
 
 /* telas do pagamento */
 const precoDoPlano=(plano,p=precos())=>plano==='anual'?p.anual:(p.promo>0&&p.promo<p.mensal?p.promo:p.mensal);
-const rotuloPagar=(p=precos())=>{const v=precoDoPlano(planoEscolhido,p);return v?`Pagar ${brl(v)}`:'Pagar'};
 function telaAssinar(){
   const p=precos();
   abrir(`<form><h1>Assinar o Caderninho</h1>
   ${cartoesPlanos()}
-  <button class="btn" data-act="assinIr">${rotuloPagar(p)}</button>
-  <p class="muted small" style="margin:0">O pagamento é pelo Mercado Pago. Não precisa ter conta lá. Pagou no Pix? Volte ao Caderninho que ele confere sozinho.</p>
+  <button class="btn" data-act="assinIr">Assinar agora</button>
+  <p class="muted small" style="margin:0">A renovação é automática. Cancele quando quiser.</p>
   <button type="button" class="btn ghost" data-act="fechar">Agora não</button></form>`);
   if(!p.mensal)verificarAcesso().then(()=>{if($('#sheet [data-act="assinIr"]')&&precos().mensal)telaAssinar()});
 }
-function telaPagTeste(plano){const p=precos(),v=precoDoPlano(plano,p)||(plano==='anual'?teste.ANUAL:teste.PROMO);abrir(`<h1>Pagamento de teste</h1>
-  <p class="muted" style="margin:0">No app de verdade, aqui abre o site do Mercado Pago. No modo de teste nada é cobrado: escolha o que acontece.</p>
-  <div class="card preco"><span class="lbl">${plano==='anual'?'Plano anual (12 meses)':'Plano mensal (30 dias)'}</span><div class="big num">${brl(v)}</div><span class="muted small">${plano==='anual'?'Pix ou cartão, uma vez só.':p.promo>0&&p.promo<p.mensal?`no 1º mês, depois ${brl(p.mensal)} por mês.`:'por mês.'}</span></div>
-  <button class="btn good" data-act="testePagar" data-v="${plano==='anual'?'anual':'mensal'}">${IC.ok}Pagamento aprovado</button>
-  <button class="btn ghost" data-act="fechar">Desistir (não pagar)</button>`)}
-/* voltou do Mercado Pago? O Checkout Pro volta com ?payment_id=…&status=… (ou collection_id). O app também marca a
-   saída em caderninho-pagando. */
-let voltaSemConta=null,voltouDoSite=false;
-function telaVoltaSemConta(recusado){abrir(`<h1>${recusado?'O pagamento não foi aprovado':'Falta só voltar ao Caderninho'}</h1>
-  <p style="margin:0">${recusado?'Feche esta página, abra o Caderninho pelo <b>ícone na tela do celular</b> e tente de novo com outra forma de pagamento.':'Feche esta página e abra o Caderninho pelo <b>ícone na tela do celular</b>. Se o plano ainda não estiver liberado, toque em <b>Já paguei, conferir</b>.'}</p>
+function telaPagTeste(plano){const p=precos(),v=precoDoPlano(plano,p)||(plano==='anual'?teste.ANUAL:teste.PROMO);teste.iniciar(meuId(),plano);abrir(`<h1>Pagamento de teste</h1>
+  <p class="muted" style="margin:0">Nada será cobrado. Escolha o resultado para simular.</p>
+  <div class="card preco"><span class="lbl">${plano==='anual'?'Plano anual':'Plano mensal'}</span><div class="big num">${brl(v)}</div><span class="muted small">${plano==='anual'?'Renova todo ano.':p.promo>0&&p.promo<p.mensal?`14,90 no 1º mês, depois ${brl(p.mensal)} por mês.`:'Renova todo mês.'}</span></div>
+  <button class="btn good" data-act="testePagar" data-v="aprovar">${IC.ok}Cobrança aprovada</button>
+  <button class="btn danger" data-act="testePagar" data-v="recusar">Cobrança recusada</button>
+  <button class="btn ghost" data-act="testePagar" data-v="desistir">Desistir</button>`)}
+/* O Mercado Pago pode voltar com preapproval_id. A URL nunca confirma o pagamento. */
+let voltaSemConta=null,voltouDoSite=false,confirmandoVolta=false,conferenciaSilenciosaFeita=false;
+function telaVoltaSemConta(){abrir(`<h1>Falta só voltar ao Caderninho</h1>
+  <p style="margin:0">Feche esta página e abra o Caderninho pelo <b>ícone na tela do celular</b>. A assinatura só aparece depois que o Caderninho confirmar.</p>
   <button class="btn" data-act="fechar">Entendi</button>`)}
-/* confere no Mercado Pago e só agradece se a validade aumentou (quem renova já está liberado, então "liberado" sozinho
-   não prova o pagamento). avisar: diz o que aconteceu mesmo quando o pagamento ainda não chegou */
+const espera=ms=>new Promise(resolve=>setTimeout(resolve,modoTeste()&&(teste.acelerarConferencia||LS.get('caderninho-teste-acelerar')==='1')?Math.min(ms,150):ms));
+const intervaloConferencia=[2000,3000,5000,8000,13000,21000,34000];
+function telaConfirmando(){abrir(`<h1>Estamos confirmando sua assinatura.</h1><p class="muted" style="margin:0">Assim que o Mercado Pago confirmar, o Caderninho libera seu acesso.</p><button class="btn ghost" data-act="fechar">Voltar</button>`)}
+function telaConferenciaFinal(abandonada=false){abrir(`<h1>${abandonada?'A assinatura não foi concluída':'Ainda não chegou a confirmação do Mercado Pago.'}</h1><p class="muted" style="margin:0">${abandonada?'Você pode escolher um plano e assinar de novo.':'Tente conferir mais uma vez em instantes.'}</p><button class="btn" data-act="assinConferir">Conferir de novo</button><button class="btn ghost" data-act="fechar">Voltar</button>${abandonada?'<button class="btn soft" data-act="assinar">Assinar de novo</button>':''}`)}
 async function conferirPagamento(avisar){
-  const a=meuAcesso(),antes=a?a.liberado_ate:0;
-  await verificarAcesso(true);
-  if(erroAcesso)return;
-  const d=meuAcesso();
-  if(d&&d.liberado_ate>antes&&pagoAgora()){LS.del(KEY_PAGANDO);pagamentoVolta='';toast('Pagamento confirmado! Obrigado.');return}
-  if(pagoAgora()){if(avisar)toast(`Seu plano vale até ${quando(d.pago_ate)}.`);return}
-  if(avisar)toast('Ainda não chegou a confirmação do Mercado Pago. Pode levar alguns minutos (no Pix, quase na hora).',true);
+  if(confirmandoVolta)return;confirmandoVolta=true;
+  if(avisar){telaConfirmando();LS.set(KEY_PAGANDO,String(Date.now()))}
+  try{
+    for(let i=0;i<intervaloConferencia.length;i++){
+      await espera(intervaloConferencia[i]);
+      await verificarAcesso(true);
+      if(erroAcesso)throw erroAcesso;
+      const a=meuAcesso(),estado=a&&a.assinatura&&a.assinatura.estado;
+      if(estado==='ativa'){LS.del(KEY_PAGANDO);confirmandoVolta=false;if(avisar){fechar();toast('Assinatura confirmada.')}return true}
+      if(estado==='cancelada'||estado==='checkout_pendente'&&i===intervaloConferencia.length-1){LS.del(KEY_PAGANDO);confirmandoVolta=false;telaConferenciaFinal(estado==='checkout_pendente');return false}
+    }
+    confirmandoVolta=false;telaConferenciaFinal(false);return false;
+  }catch(e){confirmandoVolta=false;throw e}
 }
 function voltouDoPagamento(){
-  const q=new URLSearchParams(location.search),pag=q.get('payment_id')||q.get('collection_id')||'';
-  const veio=!!pag||q.has('preference_id');
-  if(/^\d{1,30}$/.test(pag))pagamentoVolta=pag;
+  const q=new URLSearchParams(location.search),veio=q.has('preapproval_id');
   if(veio){
-    const st=q.get('status')||q.get('collection_status')||'';
-    const recusado=/rejected|failure|cancelled/i.test(st);
-    voltouDoSite=!recusado;
-    if(!sessao)voltaSemConta={recusado}; // no iPhone o navegador não enxerga a conta do ícone: mostra o caminho de volta
-    else if(recusado)setTimeout(()=>toast('O pagamento não foi aprovado. Você pode tentar de novo com outra forma de pagamento.',true),600);
-    try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
+    voltouDoSite=true;
+    if(!sessao)voltaSemConta=true;
   }
   const marcou=Number(LS.get(KEY_PAGANDO))||0;
   if(marcou&&Date.now()-marcou>864e5)LS.del(KEY_PAGANDO);
-  return veio||(marcou>0&&Date.now()-marcou<=864e5);
+  const voltou=marcou>0&&Date.now()-marcou<=864e5;
+  if(voltou&&!sessao)voltaSemConta=true;
+  if(veio||voltou)try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
+  if(voltou)voltouDoSite=true;
+  return veio||voltou;
 }
 
 /* ---------- modo de teste: servidor de mentira ----------
@@ -1181,18 +1204,32 @@ const teste={
   token(c){return 'teste.'+btoa(JSON.stringify({sub:c.id,aal:'aal1'})).replace(/=+$/,'')+'.x'},
   usuario(c){const iso=new Date(c.criado).toISOString();return{id:c.id,email:c.email,user_metadata:{nome:c.nome},created_at:iso,email_confirmed_at:iso,factors:[]}},
   sessao(c){return{access_token:this.token(c),refresh_token:'r.'+c.id,expires_in:3600,user:this.usuario(c)}},
+  atualizarAssinatura(id){
+    const agora=this.agora();
+    this.mudar(id,c=>{const s=c.assinatura;if(!s)return;
+      while(s.estado==='ativa'&&s.proxima&&s.proxima<=agora){
+        const inicio=Math.max(Number(c.pagoAte)||0,Number(s.proxima)-1),fim=inicio+(s.plano==='anual'?365:30)*this.DIA;
+        c.pagoAte=fim;s.proxima=fim;s.cobrancas=s.cobrancas||[];s.cobrancas.unshift({data:new Date(agora).toISOString(),valor:s.valor,estado:'aprovada'});s.cobrancas=s.cobrancas.slice(0,6);
+      }
+    });
+  },
   situacao(id){
-    const c=this.conta(id);if(!c)return null;
+    this.atualizarAssinatura(id);const c=this.conta(id);if(!c)return null;
     const iso=ms=>new Date(ms).toISOString(),teste_ate=c.criado+DIAS_GRATIS*this.DIA,pago=Number(c.pagoAte)||0;
     return{agora:iso(this.agora()),teste_ate:iso(teste_ate),pago_ate:pago?iso(pago):null,plano:c.planoPago||null,liberado_ate:iso(Math.max(teste_ate,pago)),
-      preco:this.PRECO,preco_promo:c.promoUsada?null:this.PROMO,preco_anual:this.ANUAL};
+      preco:this.PRECO,preco_promo:c.promoUsada?null:this.PROMO,preco_anual:this.ANUAL,
+      assinatura:c.assinatura?{estado:c.assinatura.estado,plano:c.assinatura.plano,valor:c.assinatura.valor,proxima_cobranca:c.assinatura.proxima?iso(c.assinatura.proxima):null,desde:c.assinatura.desde?iso(c.assinatura.desde):null,cancelada_em:c.assinatura.cancelada_em?iso(c.assinatura.cancelada_em):null}:null,
+      cobrancas:(c.assinatura&&c.assinatura.cobrancas||[]).slice(0,6),conferir:false};
   },
-  /* cada pagamento soma 30 dias (mensal, com o 1º mês promocional só uma vez por conta) ou 365 (anual), sem perder os
-     dias grátis que ainda restam */
-  aprovar(id,plano){this.mudar(id,c=>{
-    const inicio=Math.max(this.agora(),c.criado+DIAS_GRATIS*this.DIA,Number(c.pagoAte)||0),anual=plano==='anual';
-    c.pagoAte=inicio+(anual?365:30)*this.DIA;c.planoPago=anual?'anual':'mensal';if(!anual)c.promoUsada=true;
-  })},
+  iniciar(id,plano){this.mudar(id,c=>{c.assinatura={plano:plano==='anual'?'anual':'mensal',estado:'checkout_pendente',valor:plano==='anual'?this.ANUAL:(c.promoUsada?this.PRECO:this.PROMO),desde:null,proxima:null,cobrancas:c.assinatura&&c.assinatura.cobrancas||[]}})},
+  pagar(id,resultado){const atual=this.conta(id);if(!atual||!atual.assinatura)return;
+    if(resultado==='desistir'){this.mudar(id,c=>{if(c.assinatura)c.assinatura.estado='checkout_pendente'});return}
+    this.mudar(id,c=>{const s=c.assinatura,aprovado=resultado==='aprovar',anual=s.plano==='anual',inicio=Math.max(this.agora(),c.criado+DIAS_GRATIS*this.DIA,Number(c.pagoAte)||0);
+      s.estado=aprovado?'ativa':'falha_pagamento';s.desde=aprovado?(s.desde||this.agora()):s.desde;s.cobrancas=s.cobrancas||[];
+      s.cobrancas.unshift({data:new Date(this.agora()).toISOString(),valor:s.valor,estado:aprovado?'aprovada':'recusada'});s.cobrancas=s.cobrancas.slice(0,6);
+      if(aprovado){c.pagoAte=inicio+(anual?365:30)*this.DIA;c.planoPago=anual?'anual':'mensal';if(!anual)c.promoUsada=true;s.valor=anual?this.ANUAL:this.PRECO;s.proxima=c.pagoAte}
+    });
+  },
   /* o mesmo que public.sincronizar faz no servidor (só que tudo neste aparelho) */
   sincronizar(c,b){
     const d=this.dados(),s=d.sync[c.id]||(d.sync[c.id]={rev:0,regs:{}}),muds=Array.isArray(b.mudancas)?b.mudancas:[];
@@ -1227,14 +1264,18 @@ const teste={
       case 'POST functions/v1/assinatura':{
         const c=quem();if(!c)return{ok:false,status:401,json:{erro:'sem_login'}};
         if(b.acao==='criar'){
-          if((Number(c.pagoAte)||0)>this.agora()+7*this.DIA)return{ok:false,status:409,json:{erro:'ja_paga'}};
+          this.atualizarAssinatura(c);
+          if(c.assinatura&&['ativa','aguardando_pagamento','pausada'].includes(c.assinatura.estado))return{ok:false,status:409,json:{erro:'ja_ativa'}};
+          this.iniciar(c.id,b.plano);
           return ok({init_point:b.plano==='anual'?'#teste-pagamento-anual':'#teste-pagamento'});}
         if(b.acao==='conferir')return ok({situacao:this.situacao(c.id)});
+        if(b.acao==='cancelar'){this.mudar(c.id,x=>{if(x.assinatura){x.assinatura.estado='cancelada';x.assinatura.cancelada_em=this.agora()}});return ok({situacao:this.situacao(c.id)})}
         return{ok:false,status:400,json:{erro:'pedido'}};}
     }
     return erro(404,'erro');
   }
 };
+if(modoTeste())window.__caderninhoTeste=teste;
 function telaTeste(){
   const d=teste.dados(),c=teste.conta(meuId()),dias=Math.round(d.adianto/teste.DIA*10)/10,[st]=sessao?situacaoTxt():['Sem conta'];
   abrir(`<h1>🧪 Modo de teste</h1>
@@ -1351,22 +1392,25 @@ async function acaoConta(a,b){
     /* assinatura */
     case 'assinar': {
       if(!sessao)return formEntrar();
-      const a=meuAcesso();if(pagoAgora()&&a.pago_ate-agoraServ()>7*864e5)return toast(`Seu plano vale até ${quando(a.pago_ate)}. Dá para renovar na última semana.`);
+      const a=meuAcesso();if(pagoAgora()&&a.assinatura?.estado!=='cancelada'&&a.pago_ate-agoraServ()>7*864e5)return toast(`Seu plano vale até ${quando(a.pago_ate)}. Dá para renovar na última semana.`);
       if(pagoAgora()&&a.plano==='anual')planoEscolhido='anual'; // renovar o anual
       telaAssinar(); break;}
     case 'assinPlano': {
       planoEscolhido=b.dataset.v==='anual'?'anual':'mensal';
       document.querySelectorAll('[data-act="assinPlano"]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===planoEscolhido));
-      document.querySelectorAll('[data-act="assinIr"]').forEach(x=>{x.textContent=rotuloPagar()});
       break;}
     case 'assinIr': {
       const plano=planoEscolhido;
-      await comBotao(b,'Abrindo o pagamento…',async()=>{
-        let j;
-        try{j=await logado('functions/v1/assinatura',{corpo:{acao:'criar',plano,volta:location.origin+location.pathname}})}
-        catch(e){
-          if(e.codigo==='ja_paga'){fechar();await verificarAcesso(true);toast(msgErro(e));return}
-          throw e}
+      await comBotao(b,'Preparando checkout...',async()=>{
+        let j=null;
+        for(let tentativa=0;tentativa<4;tentativa++){
+          try{j=await logado('functions/v1/assinatura',{corpo:{acao:'criar',plano}});break}
+          catch(e){
+            if(e.codigo==='em_andamento'&&tentativa<3){await espera(2000);continue}
+            if(e.codigo==='ja_ativa'){fechar();await verificarAcesso(true);telaMinhaConta();return}
+            throw e
+          }
+        }
         const url=String(j.init_point||'');
         if(modoTeste()&&/^#teste-pagamento/.test(url))return telaPagTeste(plano);
         if(!/^https:\/\/([a-z0-9-]+\.)*mercadopago\.com(\.br)?\//i.test(url))throw new ErroConta('mp_falhou'); // só sai do app para o Mercado Pago
@@ -1375,6 +1419,12 @@ async function acaoConta(a,b){
       });
       break;}
     case 'assinConferir': await comBotao(b,'Conferindo…',async()=>{await conferirPagamento(true);if(erroAcesso)throw erroAcesso}); break;
+    case 'assinCancelar': {
+      const a=meuAcesso(),ate=a&&a.pago_ate?quando(a.pago_ate):'a data já paga';
+      perguntar('Cancelar assinatura?',a&&a.pago_ate?`Você continua usando até ${ate} e nada mais será cobrado.`:'Nada será cobrado.','Sim, cancelar',async()=>{
+        try{const j=await logado('functions/v1/assinatura',{corpo:{acao:'cancelar'}});if(j.situacao)guardarAcesso(situacaoDe(j.situacao,meuId()));telaMinhaConta();toast(a&&a.pago_ate?'Assinatura cancelada. Você continua usando até '+ate+'.':'Assinatura cancelada.')}
+        catch(e){toast(msgErro(e),true)}
+      });break;}
     case 'assinRecarregar': verificarAcesso(); break;
     /* modo de teste */
     case 'testePainel': if(modoTeste())telaTeste(); break;
@@ -1387,7 +1437,7 @@ async function acaoConta(a,b){
       else{const c=teste.conta(meuId());if(!c)return toast('Crie uma conta primeiro.',true);
         const alvo=c.criado+DIAS_GRATIS*teste.DIA+60e3-Date.now();if(alvo<=d.adianto)return toast('O teste grátis dessa conta já acabou.',true);d.adianto=alvo}
       teste.gravar(d);await depoisDoTeste(a==='testeRelogio'?'Relógio de volta para agora':'O relógio de teste andou');break;}
-    case 'testePagar': { if(!modoTeste())return; const anual=b.dataset.v==='anual'; teste.aprovar(meuId(),anual?'anual':'mensal'); fechar(); await verificarAcesso(true); toast(anual?'Plano anual confirmado! Obrigado.':'Assinatura confirmada! Obrigado.'); break;}
+    case 'testePagar': { if(!modoTeste())return;const resultado=b.dataset.v;if(resultado==='desistir'){teste.pagar(meuId(),'desistir');fechar();render();break}teste.pagar(meuId(),resultado);fechar();await verificarAcesso(true);if(resultado==='aprovar')toast('Assinatura confirmada.');else toast('Não conseguimos cobrar sua assinatura. Tente de novo com outra forma de pagamento.',true);break;}
     case 'testeZerar': if(!modoTeste())return;
       perguntar('Apagar as contas de teste?','Todas as contas criadas no modo de teste somem e o relógio volta para agora. As vendas, clientes e produtos do caderninho não são apagados.','Sim, apagar',()=>{LS.del(KEY_TESTE);fechar();guardarSessao(null);render();toast('Contas de teste apagadas')});
       break;
@@ -2252,9 +2302,10 @@ document.addEventListener('submit',e=>e.preventDefault()); // "Ok/Ir" do teclado
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden||!sessao||precisaCodigo())return;
     const a=meuAcesso(),pagando=!!LS.get(KEY_PAGANDO);
-    if(pagando)conferirPagamento(false);else if(!a||Date.now()-a.em>10*60e3||semRede())verificarAcesso(false);
+    if(pagando&&!confirmandoVolta)conferirPagamento(true);else if(!a||Date.now()-a.em>10*60e3||semRede())verificarAcesso(false);
     sync.agora();
   });
+  window.addEventListener('pageshow',()=>{if(!sessao||precisaCodigo())return;if(LS.get(KEY_PAGANDO)&&!confirmandoVolta)conferirPagamento(true);else if(!meuAcesso())verificarAcesso(false)});
   /* a internet voltou: confere a conta e manda o que ficou esperando */
   window.addEventListener('online',()=>{if(!sessao||precisaCodigo())return;if(semRede()||!meuAcesso())verificarAcesso(!!LS.get(KEY_PAGANDO));sync.agora()});
   /* com o app aberto, olha de tempos em tempos se o outro celular anotou algo */

@@ -245,19 +245,52 @@ async function fluxo() {
     await print('05-portao-assinar');
   });
 
-  await passo('4. Escolher um plano e aprovar o pagamento avulso simulado', async () => {
+  await passo('4. Escolher o plano, recuperar erro de rede e não repetir toques', async () => {
     await expect(pagina.locator('#app #portao [data-act="assinPlano"]')).toHaveCount(2);
-    await expect(pagina.locator('#app #portao [data-act="assinIr"]')).toContainText('14,90');
+    await expect(pagina.locator('#app #portao [data-act="assinIr"]')).toHaveText('Assinar agora');
     await expect(pagina.locator('#app #portao #pEmail')).toHaveCount(0);
+    const planos = await pagina.locator('#app #portao .planos').innerText();
+    expect(planos.replace(/\s+/g,' ')).toContain('R$ 14,90 no 1º mês, depois R$ 19,90 por mês');
+    expect(planos).toContain('Renova sozinho todo mês. Cancele quando quiser.');
+    expect(planos).toContain('Renova sozinho todo ano. Cancele quando quiser.');
+    expect(planos).not.toMatch(/Pix|pagamento único|não renova sozinho|paga uma vez|parcelar|vale por 30 dias/i);
+    await pagina.evaluate(() => {
+      const t=window.__caderninhoTeste,original=t.responder.bind(t);window.__criarChamadas=0;window.__falharCriar=1;
+      t.responder=async(m,u,c,token)=>{if(m==='POST'&&u==='functions/v1/assinatura'&&c?.acao==='criar'){window.__criarChamadas++;await new Promise(r=>setTimeout(r,250));if(window.__falharCriar-- >0)throw {codigo:'sem_internet'}}return original(m,u,c,token)};
+    });
     await print('06-escolher-plano');
-    await pagina.locator('#app #portao [data-act="assinIr"]').click();
-    await expect(pagina.locator('[data-act="testePagar"]')).toBeVisible();
+    const assinar=pagina.locator('#app #portao [data-act="assinIr"]');
+    const cliqueFalha=assinar.click();
+    await expect(assinar).toHaveText('Preparando checkout...');
+    await cliqueFalha;
+    await expect(assinar).toHaveText('Assinar agora');
+    await expect(pagina.locator('#toast')).toContainText('Sem internet');
+    await pagina.evaluate(()=>{window.__falharCriar=0});
+    await assinar.evaluate(el=>{el.click();el.click()});
+    await expect(pagina.locator('[data-act="testePagar"]').first()).toBeVisible();
+    expect(await pagina.evaluate(()=>window.__criarChamadas)).toBe(2);
     await print('07-pagamento-de-teste');
-    await pagina.locator('[data-act="testePagar"]').click();
+    await pagina.locator('[data-act="testePagar"][data-v="recusar"]').click();
+    await expect(pagina.locator('#portao')).toContainText('Não conseguimos cobrar sua assinatura.');
+    await expect(pagina.locator('body')).toHaveClass(/\btrancado\b/);
+    await pagina.evaluate(()=>{window.__caderninhoTeste.acelerarConferencia=true;localStorage.setItem('caderninho-teste-acelerar','1');localStorage.setItem('caderninho-pagando',String(Date.now()))});
+    await pagina.goto(`${url}?preapproval_id=x&status=approved`,{waitUntil:'domcontentloaded'});
+    await expect(pagina.locator('#sheet h1')).toHaveText('Ainda não chegou a confirmação do Mercado Pago.',{timeout:5000});
+    await expect(pagina.locator('body')).toHaveClass(/\btrancado\b/);
+    await pagina.evaluate(()=>localStorage.removeItem('caderninho-pagando'));
+    await pagina.locator('#sheet [data-act="fechar"]').click();
+    await pagina.locator('#portao [data-act="assinIr"]').click();
+    await pagina.locator('[data-act="testePagar"][data-v="aprovar"]').click();
     await expect(pagina.locator('body')).not.toHaveClass(/\btrancado\b/);
     await expect(pagina.locator('#app #portao')).toHaveCount(0);
     await expect(pagina.locator('.banner[data-gratis]')).toHaveCount(0);
     await print('08-resumo-assinatura-ativa');
+    await conferirCliente();
+    await pagina.evaluate(()=>{window.__caderninhoTeste.acelerarConferencia=true;localStorage.setItem('caderninho-teste-acelerar','1');localStorage.setItem('caderninho-pagando',String(Date.now()))});
+    await pagina.goto(`${url}?status=approved`,{waitUntil:'domcontentloaded'});
+    await expect(pagina.locator('#sheet h1')).toHaveText('Estamos confirmando sua assinatura.');
+    await expect(pagina).not.toHaveURL(/status|preapproval_id/);
+    await expect(pagina.locator('#toast')).toContainText('Assinatura confirmada.');
     await conferirCliente();
   });
 
@@ -270,11 +303,39 @@ async function fluxo() {
     await print('09-apos-recarregar');
   });
 
-  await passo('5. Pagamento mensal vale por 30 dias e não renova sozinho', async () => {
+  await passo('5. A renovação mensal mantém o acesso ao avançar o relógio', async () => {
+    await clicarAcaoTeste('testeMes');
+    await expect(pagina.locator('body')).not.toHaveClass(/\btrancado\b/);
+    await expect(pagina.locator('.banner.aviso-pag')).toHaveCount(0);
+    await pagina.locator('#btnConta').click();
+    await expect(pagina.locator('#sheet')).toContainText('Próxima cobrança');
+    await expect(pagina.locator('#sheet')).toContainText('Últimas cobranças');
+    await pagina.locator('#sheet [data-act="fechar"]').click();
+    await print('10-renovacao-mensal');
+  });
+
+  await passo('6. Cancelar mantém acesso e registra o cancelamento', async () => {
+    await pagina.locator('#btnConta').click();
+    await pagina.locator('#sheet [data-act="assinCancelar"]').click();
+    await expect(pagina.locator('#sheet')).toContainText('Você continua usando até');
+    await pagina.locator('#sheet [data-act="sim"]').click();
+    await expect(pagina.locator('#sheet')).toContainText('Cancelada');
+    await expect(pagina.locator('#sheet')).toContainText('Gerenciar no Mercado Pago');
+    await expect(pagina.locator('#sheet [data-act="assinar"]')).toHaveText('Assinar agora');
+    await print('11-assinatura-cancelada');
+    await pagina.locator('#sheet [data-act="fechar"]').click();
+    await pagina.locator('#btnConta').click();
+    await pagina.locator('#sheet [data-act="assinar"]').click();
+    await pagina.locator('#sheet [data-act="assinIr"]').click();
+    await pagina.locator('[data-act="testePagar"][data-v="desistir"]').click();
+    await pagina.evaluate(()=>localStorage.setItem('caderninho-pagando',String(Date.now())));
+    await pagina.goto(`${url}?preapproval_id=abandono&status=approved`,{waitUntil:'domcontentloaded'});
+    await expect(pagina.locator('#sheet h1')).toHaveText('Estamos confirmando sua assinatura.');
+    await expect(pagina.locator('#sheet h1')).toHaveText('A assinatura não foi concluída',{timeout:5000});
+    await expect(pagina.locator('#sheet [data-act="assinar"]')).toHaveText('Assinar de novo');
+    await pagina.locator('#sheet [data-act="fechar"]').click();
     await clicarAcaoTeste('testeMes');
     await expect(pagina.locator('body')).toHaveClass(/\btrancado\b/);
-    await expect(pagina.locator('#app #portao')).toHaveAttribute('data-estado', 'assinar');
-    await print('10-pagamento-vencido');
   });
 
   await passo('6. Sair da conta e voltar ao portão entrar', async () => {
@@ -336,12 +397,11 @@ async function fluxo() {
       await print('16-configuracao-parcial');
     });
     await passo('Volta do pagamento sem conta mostra o caminho até o ícone', async () => {
-      await pagina.goto(`${url}?payment_id=123&status=approved`, { waitUntil: 'domcontentloaded' });
+      await pagina.goto(`${url}?preapproval_id=x&status=approved`, { waitUntil: 'domcontentloaded' });
       await expect(pagina.locator('#sheet')).toBeVisible();
       await expect(pagina.locator('#sheet h1')).toHaveText('Falta só voltar ao Caderninho');
-      await expect(pagina).not.toHaveURL(/payment_id/);
-      await pagina.goto(`${url}?payment_id=123&status=rejected`, { waitUntil: 'domcontentloaded' });
-      await expect(pagina.locator('#sheet h1')).toHaveText('O pagamento não foi aprovado');
+      await expect(pagina).not.toHaveURL(/preapproval_id/);
+      await expect(pagina.locator('body')).toHaveClass(/\btrancado\b/);
       await print('17-volta-sem-conta');
     });
   } finally {

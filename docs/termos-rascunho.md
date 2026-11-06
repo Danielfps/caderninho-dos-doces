@@ -18,20 +18,22 @@ Esses dados ficam guardados no seu aparelho e no Supabase.
 
 ## 3. Pagamento e segurança
 
-O pagamento é feito pelo Mercado Pago. O aplicativo não vê os dados do seu cartão.
+O pagamento é feito pelo Mercado Pago. O aplicativo não vê nem guarda os dados do seu cartão.
 
-## 4. Valores e período de teste
+## 4. Planos, preços e renovação automática
 
-Você pode usar 3 dias grátis para testar o aplicativo.
-Depois do teste, o pagamento é feito pelo Mercado Pago, no Pix ou no cartão, sem precisar ter conta lá. Os valores são:
+Você pode usar 3 dias grátis para testar o aplicativo, contados a partir da criação da conta. Depois, os planos são:
 
-- Plano mensal: R$ 14,90 no primeiro mês e R$ 19,90 depois. Cada pagamento dá direito a 30 dias de uso.
-- Plano anual: R$ 149,90. Dá direito a 12 meses de uso.
+- Plano mensal: R$ 14,90 no primeiro mês (vale uma vez por conta) e R$ 19,90 por mês nos meses seguintes.
+- Plano anual: R$ 149,90 por ano.
 
-Não existe cobrança automática e o plano não renova sozinho. O aplicativo avisa quando o seu período estiver acabando.
+A cobrança é feita pelo Mercado Pago, na página segura dele. O Caderninho não vê e não guarda os dados do seu cartão. A assinatura renova sozinha todo mês ou todo ano, até você cancelar.
+
+Se uma cobrança for recusada, o Mercado Pago pode tentar de novo por alguns dias. Você pode continuar usando o aplicativo por mais 3 dias depois do vencimento. Se o pagamento não for feito, o uso do aplicativo fica bloqueado, mas as suas contas continuam guardadas.
 
 Devolução do valor: [regra de reembolso a definir].
 
 ## 5. Cancelamento
 
-Como não existe cobrança automática, você não precisa cancelar nada. Para não continuar usando o aplicativo, basta não fazer um novo pagamento quando o seu período terminar.
+Você pode cancelar a qualquer momento no próprio aplicativo, em Minha conta. Você continua usando o aplicativo até o fim do período que já pagou, e nada mais será cobrado.
+

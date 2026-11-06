@@ -428,3 +428,6 @@ verify_jwt = true
 
 [functions.mp-webhook]
 verify_jwt = false
+
+[functions.mp-reconciliar]
+verify_jwt = false

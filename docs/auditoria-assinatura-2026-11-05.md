@@ -102,3 +102,12 @@ Alternativa B, descrita em `docs/assinatura-arquitetura.md`. Pontos centrais:
 | E-mail da conta diferente do e-mail do Mercado Pago | Teste prático antes de publicar, com saída de exceção se precisar |
 | Reajuste do 1º mês para R$ 19,90 falhar | `PUT` repetido a cada sincronização até o Mercado Pago confirmar. Precisa de prova em teste |
 | Notificação não chegar em teste | Conferência pelo app funciona sem webhook, e a validação de HMAC tem teste automatizado |
+
+## Atualização depois dos testes práticos (05/11/2026, à noite)
+
+Os testes na conta de teste mudaram o veredito da seção 5.
+
+- **B, assinatura pendente:** aprovada só com e-mail igual ao `payer_email`. Com outro e-mail, o Mercado Pago bloqueia ("Seu e-mail não corresponde ao da assinatura"). A API também recusa e-mail que não existe lá. Essa é a causa real do campo de e-mail.
+- **C com um plano por tentativa:** aprovado sem conta, com qualquer e-mail, e identificável, porque cada link é único. Não é o link compartilhado que a seção 5 rejeitou.
+
+Decisão final: plano por tentativa. Detalhes e fatos em `docs/assinatura-arquitetura.md`.

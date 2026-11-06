@@ -92,7 +92,7 @@ test('migrações reais: compras únicas mensais e anuais, teste grátis, soma, 
   let situacao=(await su()).rows[0].s;
   assert.equal(situacao.preco_promo,14.9); assert.equal(situacao.preco,19.9); assert.equal(situacao.preco_anual,149.9);
   assert.equal(situacao.pago_ate,null); assert.equal(situacao.plano,null); assert.equal(situacao.liberado_ate,situacao.teste_ate);
-  assert.equal('assinatura' in situacao,false); assert.equal('valido_ate' in situacao,false); assert.equal('anual_ate' in situacao,false);
+  assert.equal(situacao.assinatura,null); assert.equal('valido_ate' in situacao,false); assert.equal('anual_ate' in situacao,false);
   const comprar=(id,plano='mensal',valor=plano==='mensal'?14.9:149.9,ok=true,user=usuarios.ana)=>
     como(db,user,()=>db.query('select public.registrar_compra($1,$2,$3,$4,$5) as r',[id,user,valor,ok,plano]),{role:'service_role'});
   await assert.rejects(()=>como(db,usuarios.ana,()=>db.query('select public.registrar_compra($1,$2,$3,$4,$5)',['negado',usuarios.ana,14.9,true,'mensal']),{role:'authenticated'}),/permission denied/);
