@@ -752,6 +752,7 @@ const ERROS={
   sem_email:'Confirme o e-mail da sua conta antes de assinar.',
   jwt_vencido:'Sua entrada na conta venceu. Entre de novo.',
   mp_falhou:'O Mercado Pago não respondeu agora. Tente de novo daqui a pouco.',
+  servico:'O servidor não respondeu agora. Tente de novo daqui a pouco.',
   config:'O Caderninho ainda não está ligado direito. Fale com quem cuida do app.',
   mfa_teste:'No modo de teste não dá para ligar a proteção em 2 etapas.'
 };
@@ -921,7 +922,8 @@ async function verificarAcesso(viaMP){
   if(antes==='conferindo')render();
   let pedirConferencia=false;
   try{
-    const j=viaMP?(await logado('functions/v1/assinatura',{corpo:{acao:'conferir'}})).situacao
+    const r=viaMP?await logado('functions/v1/assinatura',{corpo:{acao:'conferir'}}):null;if(viaMP)conferenciaFalhou=r.conferencia_ok===false;
+    const j=viaMP?r.situacao
                  :await logado('rest/v1/rpc/minha_situacao',{corpo:{}});
     if(!j||!j.liberado_ate)throw new ErroConta('pedido');
     if(uid&&meuId()===uid){const nova=situacaoDe(j,uid);guardarAcesso(nova);erroAcesso=null;pedirConferencia=!viaMP&&nova.conferir&&!conferenciaSilenciosaFeita;if(pedirConferencia)conferenciaSilenciosaFeita=true} // trocou de conta no meio: descarta a resposta da outra
@@ -1087,7 +1089,7 @@ function telaMinhaConta(){
     ${modoTeste()?'':`<div class="item"><span class="grow">Proteção em 2 etapas</span>${dois?'<span class="pill good">Ligada</span>':'<span class="pill neutra">Desligada</span>'}</div>`}
     ${u.created_at?`<div class="item"><span class="grow">Conta criada em</span><span class="val">${esc(quando(Date.parse(u.created_at)))}</span></div>`:''}
   </div>
-  ${estado==='ativa'||estado==='aguardando_pagamento'||estado==='pausada'?'<button class="btn danger" data-act="assinCancelar">Cancelar assinatura</button>':''}
+  ${['ativa','aguardando_pagamento','pausada','falha_pagamento'].includes(estado)?'<button class="btn danger" data-act="assinCancelar">Cancelar assinatura</button>':''}
   ${['ativa','aguardando_pagamento','pausada'].includes(estado)?'':'<button class="btn" data-act="assinar">Assinar agora</button>'}
   ${cobrancas.length?`<div class="card"><b>Últimas cobranças</b><div class="list">${cobrancas.map(c=>`<div class="item"><span class="grow">${esc(quando(lerData(c.data||c.debitada_em)))}</span><span class="val">${esc(brl(Number(c.valor)||0))} · ${esc(c.estado==='aprovada'?'Aprovada':c.estado==='recusada'?'Recusada':c.estado==='estornada'?'Estornada':'Pendente')}</span></div>`).join('')}</div></div>`:''}
   <a class="btn soft" href="https://www.mercadopago.com.br/subscriptions" target="_blank" rel="noopener">Gerenciar no Mercado Pago</a>
@@ -1149,27 +1151,33 @@ function telaPagTeste(plano){const p=precos(),v=precoDoPlano(plano,p)||(plano===
   <button class="btn danger" data-act="testePagar" data-v="recusar">Cobrança recusada</button>
   <button class="btn ghost" data-act="testePagar" data-v="desistir">Desistir</button>`)}
 /* O Mercado Pago pode voltar com preapproval_id. A URL nunca confirma o pagamento. */
-let voltaSemConta=null,voltouDoSite=false,confirmandoVolta=false,conferenciaSilenciosaFeita=false;
+let voltaSemConta=null,voltouDoSite=false,confirmandoVolta=false,conferenciaSilenciosaFeita=false,conferenciaFalhou=false;
 function telaVoltaSemConta(){abrir(`<h1>Falta só voltar ao Caderninho</h1>
   <p style="margin:0">Feche esta página e abra o Caderninho pelo <b>ícone na tela do celular</b>. A assinatura só aparece depois que o Caderninho confirmar.</p>
   <button class="btn" data-act="fechar">Entendi</button>`)}
 const espera=ms=>new Promise(resolve=>setTimeout(resolve,modoTeste()&&(teste.acelerarConferencia||LS.get('caderninho-teste-acelerar')==='1')?Math.min(ms,150):ms));
 const intervaloConferencia=[2000,3000,5000,8000,13000,21000,34000];
 function telaConfirmando(){abrir(`<h1>Estamos confirmando sua assinatura.</h1><p class="muted" style="margin:0">Assim que o Mercado Pago confirmar, o Caderninho libera seu acesso.</p><button class="btn ghost" data-act="fechar">Voltar</button>`)}
-function telaConferenciaFinal(abandonada=false){abrir(`<h1>${abandonada?'A assinatura não foi concluída':'Ainda não chegou a confirmação do Mercado Pago.'}</h1><p class="muted" style="margin:0">${abandonada?'Você pode escolher um plano e assinar de novo.':'Tente conferir mais uma vez em instantes.'}</p><button class="btn" data-act="assinConferir">Conferir de novo</button><button class="btn ghost" data-act="fechar">Voltar</button>${abandonada?'<button class="btn soft" data-act="assinar">Assinar de novo</button>':''}`)}
+function telaConferenciaFinal(motivo=''){const txt={abandonada:['A assinatura não foi concluída','Você pode escolher um plano e assinar de novo.'],recusada:['O pagamento não foi aprovado','Você pode assinar de novo com outra forma de pagamento.']}[motivo]||['Ainda não chegou a confirmação do Mercado Pago.','Tente conferir mais uma vez em instantes.'];abrir(`<h1>${txt[0]}</h1><p class="muted" style="margin:0">${txt[1]}</p>${motivo?'<button class="btn" data-act="assinar">Assinar de novo</button>':'<button class="btn" data-act="assinConferir">Conferir de novo</button>'}<button class="btn ghost" data-act="fechar">Voltar</button>`)}
 async function conferirPagamento(avisar){
   if(confirmandoVolta)return;confirmandoVolta=true;
-  if(avisar){telaConfirmando();LS.set(KEY_PAGANDO,String(Date.now()))}
+  if(avisar){telaConfirmando();if(!LS.get(KEY_PAGANDO))LS.set(KEY_PAGANDO,String(Date.now()))} // a data não renova: a marca vence em 24 horas
+  let falhou=null;
   try{
     for(let i=0;i<intervaloConferencia.length;i++){
       await espera(intervaloConferencia[i]);
       await verificarAcesso(true);
-      if(erroAcesso)throw erroAcesso;
+      falhou=erroAcesso||null;
+      if(falhou&&falhou.codigo==='sessao')throw falhou;
+      if(falhou)continue; // falha de rede numa volta não encerra as outras
       const a=meuAcesso(),estado=a&&a.assinatura&&a.assinatura.estado;
-      if(estado==='ativa'){LS.del(KEY_PAGANDO);confirmandoVolta=false;if(avisar){fechar();toast('Assinatura confirmada.')}return true}
-      if(estado==='cancelada'||estado==='checkout_pendente'&&i===intervaloConferencia.length-1){LS.del(KEY_PAGANDO);confirmandoVolta=false;telaConferenciaFinal(estado==='checkout_pendente');return false}
+      if(estado==='ativa'&&pagoAgora()){LS.del(KEY_PAGANDO);confirmandoVolta=false;if(avisar){fechar();toast('Assinatura confirmada.')}return true}
+      if(estado==='falha_pagamento'){LS.del(KEY_PAGANDO);confirmandoVolta=false;telaConferenciaFinal('recusada');return false}
+      if(estado==='cancelada'){LS.del(KEY_PAGANDO);confirmandoVolta=false;telaConferenciaFinal('abandonada');return false}
+      // Só diz que não foi concluída se o servidor conseguiu perguntar ao Mercado Pago.
+      if(estado==='checkout_pendente'&&i===intervaloConferencia.length-1&&!conferenciaFalhou){LS.del(KEY_PAGANDO);confirmandoVolta=false;telaConferenciaFinal('abandonada');return false}
     }
-    confirmandoVolta=false;telaConferenciaFinal(false);return false;
+    confirmandoVolta=false;telaConferenciaFinal('');return false;
   }catch(e){confirmandoVolta=false;throw e}
 }
 function voltouDoPagamento(){
@@ -2294,7 +2302,7 @@ document.addEventListener('submit',e=>e.preventDefault()); // "Ok/Ir" do teclado
   await voltouDoEmail();
   if(sessao&&!precisaCodigo()){
     atualizarUsuario().catch(()=>{});
-    if(pagou)await conferirPagamento(voltouDoSite);else await verificarAcesso(false);
+    if(pagou)await conferirPagamento(voltouDoSite).catch(()=>{});else await verificarAcesso(false); // erro aqui não pode impedir o resto de ligar
     sync.agora();
   }else if(!sessao){carregarPreco();if(voltaSemConta)telaVoltaSemConta(voltaSemConta.recusado)}
   window.addEventListener('hashchange',()=>{voltouDoEmail()});
@@ -2302,10 +2310,10 @@ document.addEventListener('submit',e=>e.preventDefault()); // "Ok/Ir" do teclado
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden||!sessao||precisaCodigo())return;
     const a=meuAcesso(),pagando=!!LS.get(KEY_PAGANDO);
-    if(pagando&&!confirmandoVolta)conferirPagamento(true);else if(!a||Date.now()-a.em>10*60e3||semRede())verificarAcesso(false);
+    if(pagando&&!confirmandoVolta)conferirPagamento(true).catch(()=>{});else if(!a||Date.now()-a.em>10*60e3||semRede())verificarAcesso(false);
     sync.agora();
   });
-  window.addEventListener('pageshow',()=>{if(!sessao||precisaCodigo())return;if(LS.get(KEY_PAGANDO)&&!confirmandoVolta)conferirPagamento(true);else if(!meuAcesso())verificarAcesso(false)});
+  window.addEventListener('pageshow',()=>{if(!sessao||precisaCodigo())return;if(LS.get(KEY_PAGANDO)&&!confirmandoVolta)conferirPagamento(true).catch(()=>{});else if(!meuAcesso())verificarAcesso(false)});
   /* a internet voltou: confere a conta e manda o que ficou esperando */
   window.addEventListener('online',()=>{if(!sessao||precisaCodigo())return;if(semRede()||!meuAcesso())verificarAcesso(!!LS.get(KEY_PAGANDO));sync.agora()});
   /* com o app aberto, olha de tempos em tempos se o outro celular anotou algo */

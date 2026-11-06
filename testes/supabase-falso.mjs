@@ -25,6 +25,7 @@ export async function criarSupabaseFalso(){
     grant execute on function auth.uid(),auth.jwt() to anon,authenticated,service_role;`);
   for(const file of (await readdir(path.join(raiz,'supabase/migrations'))).filter(x=>x.endsWith('.sql')).sort())
     await db.exec(await readFile(path.join(raiz,'supabase/migrations',file),'utf8'));
+  let falharAuth=false;
   const contas=new Map(), sessoes=new Map(), refreshs=new Map(), preferencias=new Map(), pagamentos=new Map(), pedidos=[];
   const planosMP=new Map(), assinaturasMP=new Map(), faturasMP=new Map();
   const relogio={agora:Date.now(),avancar(ms){this.agora+=ms;}};
@@ -131,6 +132,7 @@ export async function criarSupabaseFalso(){
           const par=tokenPara(old);old.usados.set(body.refresh_token,{em:relogio.agora,par});refreshs.set(anterior,old);return fim(200,par);
         }
       }
+      if(route==='auth/v1/user'&&falharAuth)return fim(500,{message:'indisponivel'});
       if(route==='auth/v1/user'&&(metodo==='GET'||metodo==='PUT')){
         const a=sessaoValida(req,res,'auth');if(!a)return;
         if(metodo==='PUT'){if(body?.data){a.s.user.user_metadata={...a.s.user.user_metadata,...body.data};a.s.user.nome=a.s.user.user_metadata.nome;await sql('update auth.users set nome=$1 where id=$2',[a.s.user.nome??'',a.s.user.id]);}if(body?.password){await sql('update auth.users set senha=$1 where id=$2',[scryptSync(String(body.password),'caderninho-falso',32).toString('hex'),a.s.user.id]);}return fim(200,a.s.user);}
@@ -166,6 +168,8 @@ export async function criarSupabaseFalso(){
           iniciar_contratacao:{keys:['p_user','p_plano'],sql:'public.iniciar_contratacao($1,$2)'},
           gravar_checkout:{keys:['p_id','p_mp_plano_id','p_init_point'],sql:'public.gravar_checkout($1,$2,$3)'},
           fechar_contratacao:{keys:['p_id','p_estado'],sql:'public.fechar_contratacao($1,$2)'},
+          estornar_por_pagamento:{keys:['p_pagamento','p_status'],sql:'public.estornar_por_pagamento($1,$2)'},
+          marcar_sincronizada:{keys:['p_id'],sql:'public.marcar_sincronizada($1)'},
           aplicar_preapproval:{keys:['p_id','p_mp_id','p_status','p_ultima_mudanca','p_proxima'],sql:'public.aplicar_preapproval($1,$2,$3,$4,$5)'},
           registrar_cobranca:{keys:['p_mp_cobranca_id','p_contratacao','p_pagamento','p_valor','p_estado','p_mp_status','p_pag_status','p_debitada'],sql:'public.registrar_cobranca($1,$2,$3,$4,$5,$6,$7,$8)'},
           registrar_evento:{keys:['p_chave','p_tipo','p_acao','p_mp_id','p_ao_vivo'],sql:'public.registrar_evento($1,$2,$3,$4,$5)'},
@@ -255,6 +259,7 @@ export async function criarSupabaseFalso(){
   return {chave,chaveServico,tratar,get duracaoToken(){return duracaoToken;},set duracaoToken(n){duracaoToken=Number(n);},relogio,
     get fora(){return fora;},set fora(x){fora=!!x;},get falharFechamentoPlano(){return falharFechamentoPlano;},set falharFechamentoPlano(x){falharFechamentoPlano=!!x;},
     envelhecerConta,aprovarMensal,aprovarAnual,estornarPagamento,pagarPlano:pagarPlanoFake,cobrarAssinatura:cobrarAssinaturaFake,
+    get falharAuth(){return falharAuth;},set falharAuth(x){falharAuth=!!x;},
     desconfirmar(id){const u=contas.get(id);if(u)u.email_confirmed_at=null;for(const s of sessoes.values())if(s.user?.id===id)s.user.email_confirmed_at=null;},
     preferencias,pagamentos,planosMP,assinaturasMP,faturasMP,sql,pedidos,async fechar(){await db.close();}};
 }

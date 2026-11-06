@@ -275,7 +275,7 @@ async function fluxo() {
     await expect(pagina.locator('body')).toHaveClass(/\btrancado\b/);
     await pagina.evaluate(()=>{window.__caderninhoTeste.acelerarConferencia=true;localStorage.setItem('caderninho-teste-acelerar','1');localStorage.setItem('caderninho-pagando',String(Date.now()))});
     await pagina.goto(`${url}?preapproval_id=x&status=approved`,{waitUntil:'domcontentloaded'});
-    await expect(pagina.locator('#sheet h1')).toHaveText('Ainda não chegou a confirmação do Mercado Pago.',{timeout:5000});
+    await expect(pagina.locator('#sheet h1')).toHaveText('O pagamento não foi aprovado',{timeout:5000});
     await expect(pagina.locator('body')).toHaveClass(/\btrancado\b/);
     await pagina.evaluate(()=>localStorage.removeItem('caderninho-pagando'));
     await pagina.locator('#sheet [data-act="fechar"]').click();

@@ -231,11 +231,14 @@ declare
   v_c public.contratacoes%rowtype;
   v_novo text;
   v_ultima text;
+  v_user uuid;
   v_status text:=lower(coalesce(p_status,''));
 begin
   if coalesce(auth.jwt()->>'role','') <> 'service_role' then raise exception 'permissao_negada' using errcode='42501'; end if;
-  select * into v_c from public.contratacoes where id=p_id for update;
+  select user_id into v_user from public.contratacoes where id=p_id;
   if not found then raise exception 'contratacao_nao_encontrada'; end if;
+  if v_user is not null then perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text,0)); end if;
+  select * into v_c from public.contratacoes where id=p_id for update;
   if v_c.mp_preapproval_id is not null and p_mp_id is not null and v_c.mp_preapproval_id<>p_mp_id then
     return jsonb_build_object('estado',v_c.estado,'duplicada',true,'cancelar_no_mp',true);
   end if;
@@ -288,6 +291,27 @@ begin
     cancelada_em=case when v_novo='cancelada' then coalesce(cancelada_em,now()) else cancelada_em end,
     sincronizada_em=now(),atualizado_em=now() where id=p_id returning * into v_c;
   return jsonb_build_object('estado',v_c.estado,'duplicada',false,'cancelar_no_mp',false);
+end;
+$$;
+
+create or replace function public.estornar_por_pagamento(p_pagamento text,p_status text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_n integer;
+begin
+  if coalesce(auth.jwt()->>'role','') <> 'service_role' then raise exception 'permissao_negada' using errcode='42501'; end if;
+  if nullif(p_pagamento,'') is null then raise exception 'parametros_invalidos'; end if;
+  update public.cobrancas set estado='estornada',mp_pagamento_status=p_status,atualizado_em=now()
+    where mp_pagamento_id=p_pagamento and estado<>'estornada';
+  get diagnostics v_n=row_count;
+  return jsonb_build_object('estornadas',v_n);
+end;
+$$;
+
+create or replace function public.marcar_sincronizada(p_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if coalesce(auth.jwt()->>'role','') <> 'service_role' then raise exception 'permissao_negada' using errcode='42501'; end if;
+  update public.contratacoes set sincronizada_em=now() where id=p_id;
 end;
 $$;
 
@@ -349,7 +373,7 @@ returns jsonb language sql stable security definer set search_path = '' as $$
     union all select x.criado_em,x.valor,x.status from public.compras x where x.user_id=auth.uid()
   ), situacao as (
     select now() as agora,c.created_at+interval '3 days' as teste_ate,p.pago_ate,pp.plano,
-      greatest(c.created_at+interval '3 days',coalesce(p.pago_ate,c.created_at+interval '3 days')+
+      greatest(c.created_at+interval '3 days',p.pago_ate+
         case when v.estado in ('ativa','falha_pagamento') then interval '3 days' else interval '0 days' end) as liberado_ate,
       (select valor from mensal) as preco,(select valor from promo) as preco_promo,(select valor from anual) as preco_anual,
       coalesce(v.id,u.id) as contratacao_id,coalesce(v.estado,u.estado) as estado,
@@ -378,10 +402,10 @@ $$;
 revoke all on function public.iniciar_contratacao(uuid,text), public.gravar_checkout(uuid,text,text),
   public.fechar_contratacao(uuid,text), public.aplicar_preapproval(uuid,text,text,timestamptz,timestamptz),
   public.registrar_cobranca(text,uuid,text,numeric,text,text,text,timestamptz), public.registrar_evento(text,text,text,text,boolean),
-  public.concluir_evento(text,text,text) from public,anon,authenticated;
+  public.concluir_evento(text,text,text), public.estornar_por_pagamento(text,text), public.marcar_sincronizada(uuid) from public,anon,authenticated;
 grant execute on function public.iniciar_contratacao(uuid,text), public.gravar_checkout(uuid,text,text),
   public.fechar_contratacao(uuid,text), public.aplicar_preapproval(uuid,text,text,timestamptz,timestamptz),
   public.registrar_cobranca(text,uuid,text,numeric,text,text,text,timestamptz), public.registrar_evento(text,text,text,text,boolean),
-  public.concluir_evento(text,text,text) to service_role;
+  public.concluir_evento(text,text,text), public.estornar_por_pagamento(text,text), public.marcar_sincronizada(uuid) to service_role;
 revoke all on function public.minha_situacao() from public,anon;
 grant execute on function public.minha_situacao() to authenticated;

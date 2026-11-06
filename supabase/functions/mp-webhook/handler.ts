@@ -1,4 +1,4 @@
-import { isUuid, lerNotificacaoPagamento, lerReferenciaAntiga, validarXSignature } from "../_shared/assinatura.mjs";
+import { estornoDePagamento, isUuid, lerNotificacaoPagamento, lerReferenciaAntiga, validarXSignature } from "../_shared/assinatura.mjs";
 import { sincronizarContratacao } from "../_shared/contratacao.ts";
 import { processarPagamento } from "../_shared/pagamentos.ts";
 import { chamarMercadoPago, carregarConfig, MercadoPagoError, responderJson, rpcService, type Config } from "../_shared/servidor.ts";
@@ -45,6 +45,10 @@ async function tratarAviso(config: Config, tipo: string, id: string) {
     if (antiga) {
       await processarPagamento(config, pagamento);
       return "ok";
+    }
+    // Estorno vale pelo pagamento lido agora: a fatura pode demorar a mudar ou nem mudar.
+    if (estornoDePagamento(pagamento?.status)) {
+      await rpcService(config, "estornar_por_pagamento", { p_pagamento: String(pagamento?.id ?? ""), p_status: String(pagamento?.status) });
     }
     const row = await lerContratacao(config, "id", ref);
     if (!row) return "contratacao_ausente";

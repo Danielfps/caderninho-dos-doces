@@ -16,6 +16,7 @@ export function criarMpFalso({ collectorId = "123456", token = "TEST-ACCESS-TOKE
   let falharRespostaCriacao = false;
   let falharFechamentoPlano = false;
   let falharSempreReferencia = false;
+  let ordemNovasPrimeiro = false;
   const falhas = [];
 
   function pagarPlano(planoId, { payerEmail = "pagador@outro-dominio.test", payerId = String(900000 + ++numero), pagamentoStatus = "approved", forcar = false } = {}) {
@@ -98,10 +99,11 @@ export function criarMpFalso({ collectorId = "123456", token = "TEST-ACCESS-TOKE
     return { assinatura: structuredClone(assinatura), fatura: structuredClone(fatura), pagamento: structuredClone(pagamento) };
   }
 
-  function estornar(pagamentoId) {
+  function estornar(pagamentoId, { faturaMuda = true } = {}) {
     const pagamento = pagamentos.get(String(pagamentoId));
     if (!pagamento) throw new Error("Pagamento inexistente");
     pagamento.status = "refunded";
+    if (!faturaMuda) return;
     for (const fatura of faturas.values()) if (String(fatura.payment?.id) === String(pagamentoId)) fatura.payment.status = "refunded";
   }
 
@@ -213,6 +215,7 @@ export function criarMpFalso({ collectorId = "123456", token = "TEST-ACCESS-TOKE
       const offset = Number(url.searchParams.get("offset") ?? 0);
       if (!Number.isInteger(offset) || offset < 0) return responder(res, 400, { message: "Invalid value for offset" });
       const results = [...faturas.values()].filter((item) => item.preapproval_id === url.searchParams.get("preapproval_id"));
+      if (ordemNovasPrimeiro) results.reverse();
       const pagina = results.slice(offset, offset + limit).map(({ _payer_email, ...item }) => item);
       return responder(res, 200, { results: pagina, paging: { limit, offset, total: results.length } });
     }
@@ -235,6 +238,7 @@ export function criarMpFalso({ collectorId = "123456", token = "TEST-ACCESS-TOKE
   return { tratar, planos, assinaturas, faturas, pagamentos, pedidos, pagarPlano, cobrarAssinatura, estornar, cancelarPeloMp,
     falharProxima(metodo, caminho, status) { falhas.push({ metodo, caminho, status }); },
     trocarColetor(valor) { collectorId = valor; },
+    set ordemNovasPrimeiro(value) { ordemNovasPrimeiro = Boolean(value); },
     get falharSempreReferencia() { return falharSempreReferencia; }, set falharSempreReferencia(value) { falharSempreReferencia = Boolean(value); },
     get falharRespostaCriacao() { return falharRespostaCriacao; }, set falharRespostaCriacao(value) { falharRespostaCriacao = Boolean(value); },
     get falharFechamentoPlano() { return falharFechamentoPlano; }, set falharFechamentoPlano(value) { falharFechamentoPlano = Boolean(value); } };

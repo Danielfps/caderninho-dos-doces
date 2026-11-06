@@ -8,6 +8,7 @@ import {
   sincronizarContratacao,
 } from "../_shared/contratacao.ts";
 import {
+  AuthIndisponivelError,
   autenticar,
   carregarConfig,
   CodigoPendenteError,
@@ -34,6 +35,7 @@ export async function tratar(req: Request): Promise<Response> {
   catch (error) {
     if (error instanceof CodigoPendenteError) return responderJson(req, config, 403, { erro: "insufficient_aal" });
     if (error instanceof EmailPendenteError) return responderJson(req, config, 403, { erro: "sem_email" });
+    if (error instanceof AuthIndisponivelError) return responderJson(req, config, 503, { erro: "servico" });
     return responderJson(req, config, 401, { erro: "sem_login" });
   }
   if (!user) return responderJson(req, config, 401, { erro: "sem_login" });
@@ -53,11 +55,13 @@ export async function tratar(req: Request): Promise<Response> {
 
     // Mercado Pago fora do ar não pode impedir o app de ler a situação que já está no banco.
     const agora = Date.now();
+    let conferenciaOk = true;
     for (const row of await listarContratacoesUsuario(config, user.id)) {
       const sincronizada = Date.parse(String(row.sincronizada_em ?? "")) || 0;
       if (agora - sincronizada < 4000) continue;
       try { await sincronizarContratacao(config, row); }
       catch (error) {
+        conferenciaOk = false;
         console.error("Não consegui conferir uma contratação", {
           contratacao_id: String(row.id), tipo: error instanceof Error ? error.name : "erro",
           status: error instanceof MercadoPagoError ? error.status : undefined,
@@ -66,7 +70,7 @@ export async function tratar(req: Request): Promise<Response> {
     }
     if (!await contaTemContratacao(config, user.id)) await consultarPagamentos(config, user.id, body.pagamento_id);
     const situacao = await minhaSituacao(config, user.authorization);
-    return responderJson(req, config, 200, { situacao });
+    return responderJson(req, config, 200, { situacao, conferencia_ok: conferenciaOk });
   } catch (error) {
     if (error instanceof ContratacaoError) return responderJson(req, config, error.status, { erro: error.codigo });
     console.error("Falha na função assinatura", error instanceof MercadoPagoError ? { tipo: error.name, status: error.status } : { tipo: error instanceof Error ? error.name : "erro", motivo: error instanceof Error ? error.message.slice(0, 200) : "" });

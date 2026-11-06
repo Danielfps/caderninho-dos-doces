@@ -65,10 +65,10 @@ async function gravarCheckout(config: Config, row: any, mp: any) {
     await fechar(config, row.id, "abandonada");
     throw new MercadoPagoError("Mercado Pago devolveu uma contratação incompatível");
   }
-  const saved = await rpcService(config, "gravar_checkout", {
+  await rpcService(config, "gravar_checkout", {
     p_id: row.id, p_mp_plano_id: String(mp.id), p_init_point: mp.init_point,
   });
-  return { init_point: mp.init_point, contratacao_id: String(row.id), _checkout: saved };
+  return { init_point: mp.init_point, contratacao_id: String(row.id) };
 }
 
 async function criarPlano(config: Config, row: any, volta?: unknown) {
@@ -98,7 +98,14 @@ export async function iniciar(config: Config, user: { id: string; email: string 
       case "limite": throw new ContratacaoError("limite", 429);
       case "ja_ativa": throw new ContratacaoError("ja_ativa", 409);
       case "em_andamento": throw new ContratacaoError("em_andamento", 409);
-      case "reusar": return { init_point: acao.init_point, contratacao_id: String(acao.id) };
+      case "reusar": {
+        // Antes de entregar o mesmo link, confere se a pessoa já pagou: senão ela paga duas vezes.
+        await sincronizarContratacao(config, { id: acao.id });
+        const atual = await obterContratacao(config, String(acao.id));
+        if (contratacaoPaga(atual?.estado)) throw new ContratacaoError("ja_ativa", 409);
+        if (atual?.estado !== "checkout_pendente") continue;
+        return { init_point: acao.init_point, contratacao_id: String(acao.id) };
+      }
       case "criar": return await criarPlano(config, acao, volta);
       case "retomar": return await criarPlano(config, acao, volta);
       case "substituir": {
@@ -181,19 +188,24 @@ async function reconciliarPromocao(config: Config, row: any, preapproval: any, f
 }
 
 async function importarFaturas(config: Config, row: any, assinatura: any) {
-  const salvas: any[] = [];
-  if (String(assinatura?.status ?? "").toLowerCase() === "pending") return salvas;
+  if (String(assinatura?.status ?? "").toLowerCase() === "pending") return [];
+  const todas: any[] = [];
   for (let offset = 0; ; offset += 12) {
     const result = await chamarMercadoPago(config,
       `/authorized_payments/search?preapproval_id=${encodeURIComponent(String(assinatura.id))}&limit=12&offset=${offset}`);
     const pagina = Array.isArray(result?.results) ? result.results : [];
-    for (const fatura of pagina) {
-      if (String(fatura?.preapproval_id ?? "") !== String(assinatura.id)) continue;
-      const saved = await registrarFatura(config, row, fatura, String(assinatura.id));
-      if (saved) salvas.push(saved);
-    }
-    if (pagina.length < 12) return salvas;
+    todas.push(...pagina.filter((fatura: any) => String(fatura?.preapproval_id ?? "") === String(assinatura.id)));
+    if (pagina.length < 12) break;
   }
+  // A validade de cada cobrança depende da anterior: registra sempre da mais antiga para a mais nova.
+  const data = (fatura: any) => Date.parse(fatura?.debit_date ?? fatura?.date_created ?? "") || 0;
+  todas.sort((a, b) => data(a) - data(b));
+  const salvas: any[] = [];
+  for (const fatura of todas) {
+    const saved = await registrarFatura(config, row, fatura, String(assinatura.id));
+    if (saved) salvas.push(saved);
+  }
+  return salvas;
 }
 
 async function sincronizarAssinatura(config: Config, row: any, assinatura: any, faturas: any[]) {
@@ -228,6 +240,8 @@ export async function sincronizarContratacao(config: Config, contratacao: any) {
       }
       return await sincronizarAssinatura(config, row, assinatura, []);
     }
+    if (row.estado === "checkout_pendente" && Date.parse(row.expira_em ?? "") <= Date.now()) await fechar(config, String(row.id), "abandonada");
+    await rpcService(config, "marcar_sincronizada", { p_id: String(row.id) });
     return null;
   }
 
@@ -248,15 +262,19 @@ export async function sincronizarContratacao(config: Config, contratacao: any) {
     }
     if (!encontradas.some((item: any) => String(item?.id ?? "") === String(guardada.id))) encontradas.push(guardada);
   }
-  const ordenadas = encontradas.filter((item: any) => String(item?.status ?? "").toLowerCase() === "authorized")
-    .sort((a: any, b: any) => Date.parse(a.date_created ?? "") - Date.parse(b.date_created ?? ""));
-  let principal: any = guardada ?? ordenadas[0] ?? null;
+  const statusDe = (item: any) => String(item?.status ?? "").toLowerCase();
+  const maisAntiga = (a: any, b: any) => Date.parse(a.date_created ?? "") - Date.parse(b.date_created ?? "");
+  const pagas = encontradas.filter((item: any) => statusDe(item) !== "pending").sort(maisAntiga);
+  const ordenadas = pagas.filter((item: any) => statusDe(item) === "authorized");
+  // Pagou e virou cancelada ou pausada antes da 1ª conferência: continua sendo a assinatura desta tentativa.
+  let principal: any = guardada ?? ordenadas[0] ?? pagas[0] ?? null;
   if (!principal) {
     if (["cancelada", "abandonada"].includes(String(row.estado))) await fecharPlanoTolerante(config, planoId);
     if (row.expira_em && Date.parse(row.expira_em) <= Date.now() && row.estado !== "abandonada") {
       await fechar(config, String(row.id), "abandonada");
       await fecharPlanoTolerante(config, planoId);
     }
+    await rpcService(config, "marcar_sincronizada", { p_id: String(row.id) });
     return null;
   }
 
@@ -274,13 +292,11 @@ export async function sincronizarContratacao(config: Config, contratacao: any) {
     }
   }
 
-  const assinaturasAProcessar = [principal, ...ordenadas.filter((item: any) => String(item.id) !== String(principal.id))];
-  const faturasPrincipais = [];
-  for (const assinatura of assinaturasAProcessar) {
-    const faturasDaAssinatura = await importarFaturas(config, row, assinatura);
-    if (String(assinatura.id) === String(principal.id)) faturasPrincipais.push(...faturasDaAssinatura);
-  }
-  for (const duplicada of assinaturasAProcessar.slice(1)) {
+  // Também as canceladas: o estorno de uma assinatura duplicada precisa chegar à cobrança dela.
+  const faturasPrincipais = await importarFaturas(config, row, principal);
+  const outras = pagas.filter((item: any) => String(item.id) !== String(principal.id));
+  for (const assinatura of outras) await importarFaturas(config, row, assinatura);
+  for (const duplicada of outras.filter((item: any) => statusDe(item) === "authorized")) {
     console.error("O link de uma contratação foi pago mais de uma vez; a assinatura extra será cancelada", {
       contratacao_id: String(row.id), assinatura_id: String(duplicada.id),
     });

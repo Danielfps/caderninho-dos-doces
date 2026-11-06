@@ -98,6 +98,7 @@ try {
     mp.pagarPlano(planoAna, { payerEmail: "segundo-pagador@exemplo.test", payerId: "402" }),
   ];
   const pagoBia = mp.pagarPlano(planoBia, { payerEmail: "bia-pagador@exemplo.test", payerId: "501" });
+  await supa.sql("update public.contratacoes set sincronizada_em=null");
   const [syncAna, syncBia] = await Promise.all([chamar(ana, { acao: "conferir" }), chamar(bia, { acao: "conferir" })]);
   assert.equal(syncAna.status, 200, JSON.stringify(syncAna.body));
   assert.equal(syncBia.status, 200, JSON.stringify(syncBia.body));
@@ -563,6 +564,119 @@ try {
     assert.equal(r.status, 200, JSON.stringify(r.body));
     assert.equal((await aviso({ tipo: "subscription_preapproval", id: "nao-existe" })).status, 200);
     assert.equal((await aviso({ tipo: "topic_desconhecido", id: "1" })).status, 200);
+  });
+
+  await cena("Estorno vale pelo aviso de pagamento, mesmo se a fatura não mudar", async () => {
+    const c = await novaConta();
+    const { pago } = await assinar(c);
+    assert.ok((await conferir(c)).pago_ate);
+    mp.estornar(pago.pagamento.id, { faturaMuda: false });
+    assert.equal((await aviso({ tipo: "payment", id: pago.pagamento.id })).status, 200);
+    const s = await conferir(c);
+    assert.equal(s.pago_ate, null);
+    assert.equal(s.cobrancas[0].estado, "estornada");
+  });
+
+  await cena("Estorno da assinatura duplicada, já cancelada, chega à cobrança dela", async () => {
+    const c = await novaConta();
+    const checkout = await criar(c);
+    mp.pagarPlano(planoDe(checkout));
+    const dup = mp.pagarPlano(planoDe(checkout));
+    const com2 = (await conferir(c)).pago_ate;
+    assert.equal(mp.assinaturas.get(dup.assinatura.id).status, "cancelled");
+    mp.estornar(dup.pagamento.id);
+    await conferir(c);
+    const s = await conferir(c);
+    assert.ok(new Date(s.pago_ate) < new Date(com2), "os dias da duplicada saem");
+    assert.equal(s.cobrancas.filter((x) => x.estado === "estornada").length, 1);
+  });
+
+  await cena("Tocar de novo depois de pagar não entrega o mesmo link", async () => {
+    const c = await novaConta();
+    const { pago } = await assinar(c);
+    const r = await chamar(c, { acao: "criar", plano: "mensal" });
+    assert.equal(r.status, 409, JSON.stringify(r.body));
+    assert.equal(r.body.erro, "ja_ativa");
+    assert.equal(mp.assinaturas.get(pago.assinatura.id).status, "authorized");
+  });
+
+  await cena("Mercado Pago fora no reuso não entrega link, e a conferência avisa que não conseguiu ler", async () => {
+    const c = await novaConta();
+    await criar(c);
+    mp.falharProxima("GET", "/preapproval_plan/", 500);
+    assert.equal((await chamar(c, { acao: "criar", plano: "mensal" })).status, 502);
+    await supa.sql("update public.contratacoes set sincronizada_em=null where user_id=$1", [c.user.id]);
+    mp.falharProxima("GET", "/preapproval_plan/", 500);
+    const r = await chamar(c, { acao: "conferir" });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.conferencia_ok, false);
+    await supa.sql("update public.contratacoes set sincronizada_em=null where user_id=$1", [c.user.id]);
+    assert.equal((await chamar(c, { acao: "conferir" })).body.conferencia_ok, true);
+  });
+
+  await cena("Pagou e virou cancelada antes da 1ª conferência: a cobrança conta", async () => {
+    const c = await novaConta();
+    const { checkout, pago } = await assinar(c);
+    mp.cancelarPeloMp(pago.assinatura.id);
+    const s = await conferir(c);
+    assert.ok(s.pago_ate, "os dias pagos valem");
+    assert.equal(s.assinatura.estado, "cancelada");
+    assert.equal((await linha(checkout.contratacao_id)).mp_preapproval_id, pago.assinatura.id);
+  });
+
+  await cena("Faturas lidas da mais nova para a mais antiga não mudam a validade", async () => {
+    const a = await novaConta();
+    const b = await novaConta();
+    const pa = await assinar(a);
+    mp.cobrarAssinatura(pa.pago.assinatura.id, { debitoEmDias: 30 });
+    const va = (await conferir(a)).pago_ate;
+    mp.ordemNovasPrimeiro = true;
+    const pb = await assinar(b);
+    mp.cobrarAssinatura(pb.pago.assinatura.id, { debitoEmDias: 30 });
+    const vb = (await conferir(b)).pago_ate;
+    mp.ordemNovasPrimeiro = false;
+    assert.ok(Math.abs(diasEntre(va, vb)) <= 1, `${va} ${vb}`);
+  });
+
+  await cena("Recusada no teste grátis não ganha dias a mais", async () => {
+    const c = await novaConta();
+    const checkout = await criar(c);
+    mp.pagarPlano(planoDe(checkout), { pagamentoStatus: "rejected" });
+    const s = await conferir(c);
+    assert.equal(s.assinatura.estado, "falha_pagamento");
+    assert.equal(new Date(s.liberado_ate).getTime(), new Date(s.teste_ate).getTime());
+  });
+
+  await cena("Pagamento cancelado na tentativa não é estorno: aprovação seguinte conta", async () => {
+    const c = await novaConta();
+    const checkout = await criar(c);
+    const { fatura, pagamento } = mp.pagarPlano(planoDe(checkout), { pagamentoStatus: "cancelled" });
+    await conferir(c);
+    const f = mp.faturas.get(String(fatura.id));
+    f.payment.status = "approved";
+    mp.pagamentos.get(String(pagamento.id)).status = "approved";
+    const s = await conferir(c);
+    assert.ok(s.pago_ate, "aprovada depois de cancelada libera");
+  });
+
+  await cena("Contratação sem plano vence e não prende a fila", async () => {
+    const c = await novaConta();
+    mp.falharProxima("POST", "/preapproval_plan", 500);
+    assert.equal((await chamar(c, { acao: "criar", plano: "mensal" })).status, 502);
+    const row = (await supa.sql("select id from public.contratacoes where user_id=$1", [c.user.id]))[0];
+    await supa.sql("update public.contratacoes set expira_em=now()-interval '1 minute' where id=$1", [row.id]);
+    await conferir(c);
+    assert.equal((await linha(row.id)).estado, "abandonada");
+    assert.ok((await linha(row.id)).sincronizada_em);
+  });
+
+  await cena("Serviço de contas fora não derruba a sessão", async () => {
+    const c = await novaConta();
+    supa.falharAuth = true;
+    const r = await chamar(c, { acao: "conferir" });
+    supa.falharAuth = false;
+    assert.equal(r.status, 503);
+    assert.equal(r.body.erro, "servico");
   });
 
   await cena("Logs sem e-mail nem token", async () => {

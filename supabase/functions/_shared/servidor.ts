@@ -18,6 +18,8 @@ export class MercadoPagoError extends Error {
 }
 export class CodigoPendenteError extends Error {}
 export class EmailPendenteError extends Error {}
+/* O serviço de contas falhou: não prova que a sessão acabou. */
+export class AuthIndisponivelError extends Error {}
 
 function lerAal(token: string) {
   try {
@@ -69,10 +71,14 @@ export function responderOptions(req: Request, config: Config | null) {
 export async function autenticar(req: Request, config: Config) {
   const authorization = req.headers.get("authorization") ?? "";
   if (!/^Bearer\s+\S+$/i.test(authorization)) return null;
-  const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
-    headers: { apikey: config.anonKey, Authorization: authorization },
-  });
-  if (!response.ok) return null;
+  let response: Response;
+  try {
+    response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: config.anonKey, Authorization: authorization },
+    });
+  } catch { throw new AuthIndisponivelError(); }
+  if (response.status === 401 || response.status === 403) return null;
+  if (!response.ok) throw new AuthIndisponivelError();
   const user = await response.json();
   if (!isUuid(user?.id) || typeof user?.email !== "string") return null;
   if (!(user.email_confirmed_at || user.confirmed_at)) throw new EmailPendenteError();
@@ -125,7 +131,9 @@ export async function rpcService(config: Config, nome: string, argumentos: Recor
     const motivo = limparMotivo(await response.text().catch(() => ""));
     throw new Error(`RPC ${nome} falhou com status ${response.status}: ${motivo}`);
   }
-  return await response.json();
+  // Função sem retorno responde 204, sem corpo.
+  const texto = await response.text();
+  return texto ? JSON.parse(texto) : null;
 }
 
 export async function minhaSituacao(config: Config, authorization: string) {

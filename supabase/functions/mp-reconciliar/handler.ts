@@ -1,5 +1,5 @@
 import { buscarContratacoesPendentes, sincronizarContratacao } from "../_shared/contratacao.ts";
-import { carregarConfig, responderJson } from "../_shared/servidor.ts";
+import { carregarConfig, responderJson, rpcService } from "../_shared/servidor.ts";
 
 function mesmaChave(a: string, b: string) {
   const enc = new TextEncoder();
@@ -34,6 +34,8 @@ export async function tratar(req: Request): Promise<Response> {
       catch (error) {
         falhas += 1;
         console.error("Falha ao reconciliar uma contratação", { contratacao_id: String(row.id), tipo: error instanceof Error ? error.name : "erro" });
+        // Linha que falha sempre não pode ocupar a fila na frente das outras.
+        await rpcService(config, "marcar_sincronizada", { p_id: String(row.id) }).catch((erro) => console.error("Não consegui marcar a conferência", erro?.name));
       }
     }
     return responderJson(req, config, 200, { ok: true, sincronizadas: elegiveis.length - falhas, falhas });

@@ -1,5 +1,8 @@
 const ESTORNOS = new Set(["refunded", "charged_back", "cancelled", "canceled"]);
 
+const ESTORNOS_FATURA = new Set(["refunded", "charged_back"]);
+export const estornoDePagamento = (status) => ESTORNOS_FATURA.has(String(status ?? "").toLowerCase());
+
 export function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? ""));
 }
@@ -29,7 +32,8 @@ export function lerFatura(fatura) {
   const status = String(fatura.status ?? "").toLowerCase();
   const pagamentoStatus = String(pagamento.status ?? "").toLowerCase();
   let estado = "pendente";
-  if (ESTORNOS.has(pagamentoStatus) || ESTORNOS.has(status)) estado = "estornada";
+  // Pagamento "cancelled" numa tentativa de cobrança não é estorno: dinheiro nenhum entrou.
+  if (ESTORNOS_FATURA.has(pagamentoStatus)) estado = "estornada";
   else if (status === "processed" && pagamentoStatus === "approved") estado = "aprovada";
   else if (status === "rejected" || pagamentoStatus === "rejected" || pagamentoStatus === "cancelled" || pagamentoStatus === "canceled") estado = "recusada";
   const valor = Number(fatura.transaction_amount ?? fatura.summarized?.transaction_amount ?? fatura.summarized?.total);
