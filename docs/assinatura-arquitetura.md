@@ -42,7 +42,7 @@ Valem mais que a documentação quando as duas discordam.
 
 1. O app só informa `plano`. Preço, moeda, frequência, e-mail, id da conta e status vêm do servidor.
 2. Acesso pago nasce só de **cobrança aprovada** registrada em `cobrancas`. Nunca de `authorized` sozinho, da volta ao app ou de parâmetro de URL.
-3. No máximo uma contratação viva por conta, garantido por índice único no banco.
+3. No máximo uma contratação viva por conta, garantido por índice único no banco. Isso não garante sozinho uma única recorrência remota: criação tem reserva e confirmação atômica; cancelamento só termina depois de confirmado no Mercado Pago.
 4. Token, segredo de webhook, chave `service_role`, e-mail e dados de cartão nunca aparecem em log nem na resposta ao app.
 5. Webhook sem assinatura válida não processa nada. Com assinatura válida, o estado é relido do Mercado Pago.
 6. Tudo é idempotente: repetir aviso, conferência ou toque não muda o resultado.
@@ -114,9 +114,9 @@ Só acrescenta. RLS ligado e sem acesso direto de `anon` e `authenticated` nas t
   - `substituir` (com `id` e `mp_preapproval_id`): existe `falha_pagamento`, `pausada`, ou `checkout_pendente` vencida ou com plano ou preço diferente. O servidor primeiro sincroniza (a pessoa pode ter pagado). Se seguir sem pagamento, fecha o plano no Mercado Pago. Se houver assinatura, cancela ela. Depois chama `fechar_contratacao` e `iniciar_contratacao` de novo. Sem fechamento confirmado não nasce outra.
   - `reusar` (com `id` e `init_point`): `checkout_pendente` válida, com mesmo plano e mesmo preço.
   - `em_andamento`: `checkout_pendente` sem `init_point` criada há menos de 20 s.
-  - `retomar` (com os dados da tentativa): `checkout_pendente` sem `init_point` há 20 s ou mais. O servidor cria outro plano para a mesma tentativa; o anterior, se existir, não chegou a ninguém.
+  - `retomar` (com os dados da tentativa e token de operação): `checkout_pendente` sem `init_point` há 20 s ou mais e sem reserva vigente. A transação reserva 60 s para um único trabalhador. `confirmar_checkout` exige o mesmo token ainda vigente, sem outro plano vinculado nem cancelamento pendente. Uma resposta atrasada é registrada e seu plano fechado, sem devolver o link. Plano cuja resposta nunca chegou não teve link entregue.
   - `criar` (com os dados da nova tentativa).
-- `gravar_checkout(p_id, p_mp_plano_id, p_init_point)`.
+- `gravar_checkout(p_id, p_mp_plano_id, p_init_point)`: compatibilidade com o servidor anterior; não permite sobrescrever outro plano. O servidor novo usa `confirmar_checkout` com token da reserva.
 - `fechar_contratacao(p_id, p_estado)`: aceita só `abandonada` e `cancelada`.
 - `aplicar_preapproval(p_id, p_mp_id, p_status, p_ultima_mudanca, p_proxima)`: aplica a máquina de estados e devolve o estado final, mais `duplicada` e `cancelar_no_mp`.
 - `registrar_cobranca(p_id, p_contratacao, p_pagamento, p_valor, p_estado, p_mp_status, p_pag_status, p_debitada)`: idempotente.
@@ -158,7 +158,7 @@ Período: `interval '1 month'` para mensal, `'12 months'` para anual.
 - Renovação da mesma contratação, com cobrança anterior aprovada: início no fim do período anterior. Se o intervalo passar de 15 dias, início na data da cobrança.
 - Primeira cobrança da contratação: início no maior entre data da cobrança, fim do teste grátis e maior validade paga da conta. Quem assina durante o teste grátis não perde dias, e quem troca de plano soma.
 
-`pago_ate` é o maior `valido_ate` entre `cobrancas` aprovadas e `compras` aprovadas. Estorno muda a cobrança para `estornada`, e `pago_ate` recua sozinho.
+`pago_ate` é o maior `valido_ate` entre `cobrancas` aprovadas e `compras` aprovadas. Estorno muda a cobrança para `estornada`. A nova migração recalcula, sob a trava da conta, as validades aprovadas em ordem cronológica. Isso remove também a contribuição de uma cobrança estornada aos períodos posteriores. MAX sozinho não desfaz esse encadeamento. Registros estornados são preservados, inclusive sua validade histórica.
 
 `liberado_ate` = maior entre `teste_ate` e `pago_ate`, somando 3 dias a `pago_ate` quando há contratação em `ativa` ou `falha_pagamento`.
 
@@ -166,7 +166,7 @@ Período: `interval '1 month'` para mensal, `'12 months'` para anual.
 
 - `reusar` sincroniza antes de devolver o link: quem já pagou recebe `ja_ativa`, nunca o mesmo link de novo.
 - `conferir` devolve `conferencia_ok`. Com `false`, o app não diz que a pessoa não pagou.
-- O aviso `payment` com `refunded` ou `charged_back` estorna direto pelo id do pagamento, sem depender da fatura mudar. Sem prova real ainda.
+- O aviso `payment` com `refunded` ou `charged_back` persiste o estorno por id do pagamento mesmo sem fatura local. Registro de cobrança e estorno usam a mesma ordem de travas: pagamento, depois conta. Nenhuma aprovação atrasada desfaz esse estorno. A sincronização também consulta pagamentos de faturas aprovadas, recuperando estorno sem aviso e com fatura desatualizada. Sem prova real ainda.
 - Faturas de todas as assinaturas pagas do plano são lidas, inclusive canceladas, sempre da mais antiga para a mais nova.
 - Sem `authorized`, a assinatura principal é a paga mais antiga: quem pagou não perde os dias.
 - Pagamento `cancelled` numa tentativa é recusa, não estorno.
@@ -183,7 +183,7 @@ Vale como aprovada só se: `status` da fatura `processed`, `payment.status` igua
 ## `sincronizarContratacao(config, contratacao)`
 
 1. Busca `GET /preapproval/search?preapproval_plan_id=<mp_plano_id>` e filtra por `preapproval_plan_id` exato e `collector_id`. Com `mp_preapproval_id` guardado, relê também `GET /preapproval/{id}`. Nenhuma assinatura: continua `checkout_pendente`.
-2. Escolhe a assinatura da contratação: a guardada ou, sem ela, a `authorized` mais antiga. Se houver outra `authorized` no mesmo plano (o link foi pago duas vezes), cancela a mais nova no Mercado Pago e registra em log. A cobrança dela conta para a validade, então nada se perde. Devolver o valor é decisão humana.
+2. Escolhe a assinatura da contratação: a guardada ou, sem ela, a `authorized` mais antiga. Se houver outra `authorized` no mesmo plano, cancela a extra no Mercado Pago e identifica suas cobranças com `mp_assinatura_id` e `duplicada=true`. Até a devolução, o pagamento aprovado continua na validade. Por decisão do Daniel, o pagamento mais novo deve ser devolvido por inteiro no painel, manualmente. Nenhuma API de devolução é chamada.
 3. Grava `external_reference` na assinatura escolhida com `PUT`, se vier vazio. Falha aqui não impede o resto.
 4. Se não estiver `pending`, lê `GET /authorized_payments/search?preapproval_id=<id>&limit=12&offset=<n>`, página por página, confere o `external_reference` da fatura e chama `registrar_cobranca` para cada uma. Faz isso também para a assinatura duplicada.
 5. Chama `aplicar_preapproval`. Se vier `cancelar_no_mp`, cancela no Mercado Pago.
@@ -193,8 +193,8 @@ Vale como aprovada só se: `status` da fatura `processed`, `payment.status` igua
 ## Função `assinatura`
 
 - `criar`: fluxo acima. Respostas de erro: `pedido`, `sem_login`, `insufficient_aal`, `sem_email` (conta sem e-mail confirmado), `ja_ativa` (409), `em_andamento` (409), `limite` (429), `plano_indisponivel` (409), `mp_falhou` (502), `config` (500).
-- `conferir`: sincroniza a contratação viva e as abandonadas das últimas 48 h, com pausa mínima de 4 s por contratação. Sem nenhuma contratação na conta, usa `consultarPagamentos` antigo. Responde `{situacao}`.
-- `cancelar`: acha a contratação viva da própria conta, sem receber id do app, faz `PUT /preapproval/{id}` com `{status:"cancelled"}` e fecha o plano para matar o link. Depois sincroniza e responde `{situacao}`.
+- `conferir`: consulta as contratações financeiras da conta, inclusive finais com cobrança. Uma abandonada sem nenhuma cobrança e criada há mais de 48 horas sai da consulta, mesmo com marcador de erro ou plano excedente; a mesma regra vale no cron e na sinalização de `minha_situacao`. Tentativas recentes continuam na janela. Não há corte arbitrário nas primeiras 50 contratações com dinheiro. Só reutiliza sucesso dos últimos 4 s quando não há erro nem cancelamento pendente. Sem contratação, usa o caminho legado. Responde `{situacao, conferencia_ok}`: false se qualquer conferência falhou; true pode reutilizar uma leitura efetivamente bem-sucedida nos últimos 4 s.
+- `cancelar`: encontra a contratação viva ou com cancelamento pendente da própria conta, sem aceitar id do app. Persiste o pedido antes de falar com o MP, impedindo nova contratação enquanto ele não terminar. Cancela as assinaturas encontradas, fecha o plano com confirmação e repete a busca em conflito. A importação financeira é tentada mesmo quando limpeza ou cancelamento falham; o erro de encerramento é guardado e relançado depois das faturas, sem concluir o pedido nem gravar sucesso. A expiração não transforma um checkout com cancelamento pendente em abandonada. Ao concluir, sem `mp_preapproval_id` nem cobrança, fica `abandonada`; nos outros casos, `cancelada`. HTTP 200 continua respondendo `{situacao}` e significa conclusão confirmada; falha permanece HTTP 502 `{erro:"mp_falhou"}`, com pedido durável para retentativa. Nenhuma validade paga é removida pelo cancelamento, mensal ou anual.
 
 ## Função `mp-webhook`
 
@@ -211,7 +211,7 @@ Vale como aprovada só se: `status` da fatura `processed`, `payment.status` igua
 
 ## Função `mp-reconciliar`
 
-`POST` com cabeçalho `x-reconciliar-chave` igual ao segredo `RECONCILIAR_CHAVE`, comparado em tempo constante. Sincroniza até 50 contratações vivas com `sincronizada_em` há mais de 6 horas ou `proxima_cobranca` vencida. `verify_jwt` desligado. Sem o segredo, responde 500. Agendamento é opcional: o app também pede conferência quando `minha_situacao().conferir` vem verdadeiro.
+`POST` com cabeçalho `x-reconciliar-chave` igual ao segredo `RECONCILIAR_CHAVE`, comparado em tempo constante. Seleciona no banco até 50 contratações já elegíveis, antes do limite: vivas há 6 horas sem sucesso, próxima cobrança vencida, aguardando pagamento, cancelamento pendente, erro vencido para retentativa ou plano excedente a fechar. A ordem é: cancelamento pendente ou falha, depois vivas elegíveis, depois revisão de finais. Dentro de cada grupo, usa a tentativa anterior, criação e id. Finais com cobrança continuam revistas a cada 24 horas; abandonada sem cobrança sai após 48 horas da criação, inclusive dos caminhos de erro e limpeza. `contratacao_revisavel` centraliza essa exclusão nos três seletores. Falhas registram tentativa, erro e reagendamento em 1 minuto; só uma sincronização completa grava `sincronizada_em`. `verify_jwt` desligado. Sem o segredo, responde 500. Agendamento é opcional: o app também pede conferência quando `minha_situacao().conferir` vem verdadeiro.
 
 ## `minha_situacao()`
 
@@ -225,7 +225,7 @@ Mantém `agora`, `teste_ate`, `pago_ate`, `plano`, `liberado_ate`, `preco`, `pre
 }
 ```
 
-`assinatura` é a contratação viva ou, sem viva, a última que não foi abandonada. `cobrancas` traz no máximo 6. `conferir` é verdadeiro quando a contratação viva não sincroniza há 24 h, ou quando `proxima_cobranca` já passou, ou quando está `aguardando_pagamento`.
+`assinatura` é a contratação viva ou, sem viva, a última que não foi abandonada. Assim, encerrar checkout vazio não cria uma assinatura cancelada na conta. `cobrancas` traz no máximo 6. `conferir` é verdadeiro quando a contratação viva não sincroniza há 24 h, quando `proxima_cobranca` já passou, quando aguarda pagamento e também quando há erro/cancelamento pendente, plano excedente ou revisão financeira vencida de final. Abandonadas sem cobrança com mais de 48 horas não acionam essa sinalização.
 
 ## Configuração
 
@@ -266,8 +266,28 @@ Mantém `agora`, `teste_ate`, `pago_ate`, `plano`, `liberado_ate`, `preco`, `pre
 
 ## Política de troca de plano
 
-Cancelar e assinar de novo. A nova contratação só nasce sem outra viva, então nunca há duas recorrências. Os dias pagos somam.
+Cancelar e assinar de novo. A nova contratação só nasce sem outra viva nem cancelamento pendente; os efeitos remotos dependem também das reservas e do cancelamento confirmado descritos acima. Os dias pagos somam.
 
 ## Distribuição
 
 Hoje o app é PWA por link, fora das lojas, então as regras de cobrança das lojas não se aplicam. Se um dia for empacotado para loja, Google Play Billing e In-App Purchase passam a valer para essa versão, com as opções específicas da Apple para o Brasil. Ver `docs/assinatura.md`.
+
+## Segunda revisão: migração incremental de 08/11/2026
+
+A migração 202611060001 permanece intacta. A nova `202611080001_revisao_assinatura.sql` acrescenta:
+
+- Em contratacoes: cancelamento_pendente, checkout_operacao, checkout_reservado_ate, tentada_em, conferencia_falhou e reconciliar_apos.
+- Em cobrancas: mp_assinatura_id e duplicada, para auditoria e devolução manual integral do pagamento mais novo. A primeira cobrança não é devolvida por política, mas contestação no cartão é tratada normalmente.
+- planos_checkout: recursos conhecidos, inclusive respostas atrasadas que perderam a reserva. Planos excedentes ficam rastreáveis e são fechados enquanto a contratação participa da reconciliação. Uma abandonada antiga sem cobrança sai dessa revisão após 48 horas; seus registros não são apagados. Planos cuja resposta se perdeu inteiramente não tiveram link entregue.
+- estornos_pagamento: estado terminal por id de pagamento, mesmo antes da primeira fatura. As tabelas auxiliares têm RLS e acesso apenas de service_role.
+- Funções de reserva/confirmação, cancelamento durável, seleção da fila e recálculo de validade. O helper de recálculo é interno, com EXECUTE restrito; também é chamado pelos gatilhos financeiros e pelo dono na migração.
+
+A migração preserva pagamentos e estados; recalcula a projeção de validade das contas que já possuíam estorno e registra seus estornos e planos conhecidos nas tabelas auxiliares. Não cria uma estrutura de créditos nem altera preços, elegibilidade ou política de promoção. Sua aplicação incremental é testada sobre a migração anterior com cobranças existentes, inclusive anual cancelada, que mantém a validade integral.
+
+Compatibilidade do app: os formatos de sucesso e erro não mudam. Cancelar só recebe 200 depois de concluir; em 502 a interface atual mostra erro e pode retentar, enquanto o servidor conserva o pedido. Compasso deve manter a confirmação condicionada ao 200 e corrigir separadamente a atribuição de respostas à sessão e a retentativa da conferência automática (achados 8 e 9). `conferencia_ok` nunca usa uma falha de cron como prova de leitura bem-sucedida.
+
+Os testes locais usam handlers reais e banco em PGlite contra MP simulado. Cobrem corrida no fechamento do plano, retomada concorrente após 20 s, trabalhador atrasado, falha na limpeza do plano excedente, estorno antes da importação, contestação da cobrança antiga/intermediária/de plano anterior, revisão financeira de canceladas e fila acima de 50. Não provam concorrência entre sessões PostgreSQL reais nem comportamento do Mercado Pago real. Não houve implantação nesta etapa.
+
+### Ajustes após conferência independente
+
+Os novos cenários comprovam importação de renovação e estorno durante falha persistente de limpeza ou cancelamento de assinatura `pending`, sem concluir cancelamento nem registrar sucesso. A fila foi testada com 51 finais elegíveis e uma viva vencida, além das prioridades de erro e cancelamento. Uma conta com 60 abandonadas vazias antigas faz zero chamadas ao MP ao conferir, mesmo com erros e recurso excedente registrados; tentativas de 47 horas e abandonadas de 49 horas com cobrança continuam revistas. Checkout vazio termina abandonado, enquanto assinatura identificada ou qualquer cobrança mantém a conclusão como cancelada. O período pago permanece intacto. Cancelamento ainda em curso não é descartado pela expiração do checkout.

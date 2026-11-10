@@ -1,4 +1,4 @@
-import { lerFatura, textoReason } from "./assinatura.mjs";
+import { estornoDePagamento, lerFatura, textoReason } from "./assinatura.mjs";
 import { chamarMercadoPago, type Config, MercadoPagoError, rpcService, urlDeVolta } from "./servidor.ts";
 
 export class ContratacaoError extends Error {
@@ -14,11 +14,15 @@ async function obterContratacao(config: Config, id: string) {
 }
 
 async function buscarAssinaturasDoPlano(config: Config, planoId: string) {
-  const query = new URLSearchParams({ preapproval_plan_id: planoId, limit: "100" });
-  const result = await chamarMercadoPago(config, `/preapproval/search?${query}`);
-  return (Array.isArray(result?.results) ? result.results : []).filter((item: any) =>
-    String(item?.preapproval_plan_id ?? "") === planoId
-      && String(item?.collector_id ?? "") === config.mpCollectorId);
+  const todas: any[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const query = new URLSearchParams({ preapproval_plan_id: planoId, limit: "100", offset: String(offset) });
+    const result = await chamarMercadoPago(config, `/preapproval/search?${query}`);
+    const pagina = Array.isArray(result?.results) ? result.results : [];
+    todas.push(...pagina.filter((item: any) => String(item?.preapproval_plan_id ?? "") === planoId
+      && String(item?.collector_id ?? "") === config.mpCollectorId));
+    if (pagina.length < 100 || Number(result?.paging?.total) <= offset + pagina.length) return todas;
+  }
 }
 
 /* A assinatura nasce sem external_reference: quem prova que ela é nossa é o plano. */
@@ -50,9 +54,14 @@ async function fechar(config: Config, id: string, estado: "abandonada" | "cancel
 
 /* Plano com assinatura autorizada não fecha (400): quem chama decide se isso é erro. */
 async function fecharPlano(config: Config, id: string) {
-  return await chamarMercadoPago(config, `/preapproval_plan/${encodeURIComponent(id)}`, {
+  const result = await chamarMercadoPago(config, `/preapproval_plan/${encodeURIComponent(id)}`, {
     method: "PUT", body: JSON.stringify({ status: "cancelled" }),
   });
+  if (String(result?.id) !== id || String(result?.collector_id) !== config.mpCollectorId || result?.status !== "cancelled") {
+    throw new MercadoPagoError("Mercado Pago não confirmou o fechamento do plano");
+  }
+  await rpcService(config, "marcar_plano_fechado", { p_mp_plano_id: id });
+  return result;
 }
 
 const contratacaoPaga = (estado: unknown) => ["ativa", "aguardando_pagamento"].includes(String(estado));
@@ -65,9 +74,13 @@ async function gravarCheckout(config: Config, row: any, mp: any) {
     await fechar(config, row.id, "abandonada");
     throw new MercadoPagoError("Mercado Pago devolveu uma contratação incompatível");
   }
-  await rpcService(config, "gravar_checkout", {
-    p_id: row.id, p_mp_plano_id: String(mp.id), p_init_point: mp.init_point,
+  const aceito = await rpcService(config, "confirmar_checkout", {
+    p_id: row.id, p_operacao: row.operacao, p_mp_plano_id: String(mp.id), p_init_point: mp.init_point,
   });
+  if (!aceito) {
+    await fecharPlano(config, String(mp.id));
+    throw new ContratacaoError("em_andamento", 409);
+  }
   return { init_point: mp.init_point, contratacao_id: String(row.id) };
 }
 
@@ -85,8 +98,12 @@ async function criarPlano(config: Config, row: any, volta?: unknown) {
     },
     back_url: urlDeVolta(config, volta),
   };
-  const created = await chamarMercadoPago(config, "/preapproval_plan", { method: "POST", body: JSON.stringify(payload) });
-  return await gravarCheckout(config, row, created);
+  try {
+    const created = await chamarMercadoPago(config, "/preapproval_plan", { method: "POST", body: JSON.stringify(payload) });
+    return await gravarCheckout(config, row, created);
+  } finally {
+    await rpcService(config, "liberar_checkout", { p_id: row.id, p_operacao: row.operacao });
+  }
 }
 
 export async function iniciar(config: Config, user: { id: string; email: string }, plano: unknown, volta?: unknown) {
@@ -140,7 +157,7 @@ async function fecharPlanoTolerante(config: Config, id: string) {
   }
 }
 
-async function registrarFatura(config: Config, row: any, fatura: any, assinaturaId: string) {
+async function registrarFatura(config: Config, row: any, fatura: any, assinaturaId: string, duplicada: boolean) {
   const f = lerFatura(fatura);
   if (!f || !f.id || f.contratacaoId !== assinaturaId
     || String(fatura?.external_reference ?? "") !== String(row.id) || f.moeda !== "BRL") return null;
@@ -148,7 +165,20 @@ async function registrarFatura(config: Config, row: any, fatura: any, assinatura
     console.error("Cobrança abaixo do mínimo recusada", { contratacao_id: String(row.id), cobranca_id: f.id });
     return null;
   }
-  const saved = await rpcService(config, "registrar_cobranca", {
+  // O aviso payment pode faltar e a fatura pode continuar aprovada depois do estorno.
+  if (f.pagamentoId && f.estado === "aprovada") {
+    const pagamento = await chamarMercadoPago(config, `/v1/payments/${encodeURIComponent(f.pagamentoId)}`);
+    if (String(pagamento?.id) !== f.pagamentoId || String(pagamento?.collector_id) !== config.mpCollectorId
+      || String(pagamento?.external_reference) !== String(row.id)) {
+      throw new MercadoPagoError("Pagamento não corresponde à contratação");
+    }
+    if (estornoDePagamento(pagamento.status)) {
+      await rpcService(config, "estornar_por_pagamento", { p_pagamento: f.pagamentoId, p_status: pagamento.status });
+      f.estado = "estornada";
+      f.pagamentoStatus = pagamento.status;
+    }
+  }
+  const saved = await rpcService(config, "registrar_cobranca_assinatura", {
     p_mp_cobranca_id: f.id,
     p_contratacao: String(row.id),
     p_pagamento: f.pagamentoId,
@@ -157,8 +187,10 @@ async function registrarFatura(config: Config, row: any, fatura: any, assinatura
     p_mp_status: f.status,
     p_pag_status: f.pagamentoStatus,
     p_debitada: f.debitadaEm,
+    p_assinatura: assinaturaId,
+    p_duplicada: duplicada,
   });
-  return { ...f, saved };
+  return { ...f, estado: saved?.estado ?? f.estado, saved };
 }
 
 async function reconciliarPromocao(config: Config, row: any, preapproval: any, faturas: any[]) {
@@ -187,7 +219,7 @@ async function reconciliarPromocao(config: Config, row: any, preapproval: any, f
   }
 }
 
-async function importarFaturas(config: Config, row: any, assinatura: any) {
+async function importarFaturas(config: Config, row: any, assinatura: any, duplicada = false) {
   if (String(assinatura?.status ?? "").toLowerCase() === "pending") return [];
   const todas: any[] = [];
   for (let offset = 0; ; offset += 12) {
@@ -202,7 +234,7 @@ async function importarFaturas(config: Config, row: any, assinatura: any) {
   todas.sort((a, b) => data(a) - data(b));
   const salvas: any[] = [];
   for (const fatura of todas) {
-    const saved = await registrarFatura(config, row, fatura, String(assinatura.id));
+    const saved = await registrarFatura(config, row, fatura, String(assinatura.id), duplicada);
     if (saved) salvas.push(saved);
   }
   return salvas;
@@ -226,7 +258,7 @@ async function sincronizarAssinatura(config: Config, row: any, assinatura: any, 
   return aplicado;
 }
 
-export async function sincronizarContratacao(config: Config, contratacao: any) {
+async function sincronizarDadosContratacao(config: Config, contratacao: any) {
   if (!contratacao?.id) return null;
   let row = await obterContratacao(config, String(contratacao.id));
   if (!row) return null;
@@ -240,8 +272,7 @@ export async function sincronizarContratacao(config: Config, contratacao: any) {
       }
       return await sincronizarAssinatura(config, row, assinatura, []);
     }
-    if (row.estado === "checkout_pendente" && Date.parse(row.expira_em ?? "") <= Date.now()) await fechar(config, String(row.id), "abandonada");
-    await rpcService(config, "marcar_sincronizada", { p_id: String(row.id) });
+    if (row.estado === "checkout_pendente" && !row.cancelamento_pendente && Date.parse(row.expira_em ?? "") <= Date.now()) await fechar(config, String(row.id), "abandonada");
     return null;
   }
 
@@ -270,11 +301,10 @@ export async function sincronizarContratacao(config: Config, contratacao: any) {
   let principal: any = guardada ?? ordenadas[0] ?? pagas[0] ?? null;
   if (!principal) {
     if (["cancelada", "abandonada"].includes(String(row.estado))) await fecharPlanoTolerante(config, planoId);
-    if (row.expira_em && Date.parse(row.expira_em) <= Date.now() && row.estado !== "abandonada") {
+    if (row.expira_em && Date.parse(row.expira_em) <= Date.now() && row.estado !== "abandonada" && !row.cancelamento_pendente) {
       await fechar(config, String(row.id), "abandonada");
       await fecharPlanoTolerante(config, planoId);
     }
-    await rpcService(config, "marcar_sincronizada", { p_id: String(row.id) });
     return null;
   }
 
@@ -295,7 +325,7 @@ export async function sincronizarContratacao(config: Config, contratacao: any) {
   // Também as canceladas: o estorno de uma assinatura duplicada precisa chegar à cobrança dela.
   const faturasPrincipais = await importarFaturas(config, row, principal);
   const outras = pagas.filter((item: any) => String(item.id) !== String(principal.id));
-  for (const assinatura of outras) await importarFaturas(config, row, assinatura);
+  for (const assinatura of outras) await importarFaturas(config, row, assinatura, true);
   for (const duplicada of outras.filter((item: any) => statusDe(item) === "authorized")) {
     console.error("O link de uma contratação foi pago mais de uma vez; a assinatura extra será cancelada", {
       contratacao_id: String(row.id), assinatura_id: String(duplicada.id),
@@ -305,31 +335,77 @@ export async function sincronizarContratacao(config: Config, contratacao: any) {
   return await sincronizarAssinatura(config, row, principal, faturasPrincipais);
 }
 
-export async function cancelar(config: Config, userId: string) {
-  const url = `${config.supabaseUrl}/rest/v1/contratacoes?select=*&user_id=eq.${encodeURIComponent(userId)}&estado=in.(checkout_pendente,aguardando_pagamento,ativa,pausada,falha_pagamento)&order=criado_em.desc&limit=1`;
-  const res = await fetch(url, { headers: { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}` } });
-  if (!res.ok) throw new Error(`Falha ao localizar contratação (${res.status})`);
-  const rows = await res.json();
-  let row = Array.isArray(rows) ? rows[0] : null;
-  if (!row) return null;
-  await sincronizarContratacao(config, { id: row.id });
-  row = await obterContratacao(config, String(row.id)) ?? row;
-  if (row.mp_preapproval_id) {
-    await cancelarNoMercadoPago(config, String(row.mp_preapproval_id), String(row.mp_plano_id ?? ""));
-    if (row.mp_plano_id) await fecharPlanoTolerante(config, String(row.mp_plano_id));
-    await sincronizarContratacao(config, { id: row.id });
-  } else {
-    if (row.mp_plano_id) await fecharPlanoTolerante(config, String(row.mp_plano_id));
-    await fechar(config, String(row.id), "abandonada");
+/* Fechar o plano é parte da confirmação, inclusive quando o checkout acabou entre as leituras. */
+async function efetivarCancelamento(config: Config, row: any) {
+  const planoId = String(row.mp_plano_id ?? "");
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    const assinaturas = planoId ? await buscarAssinaturasDoPlano(config, planoId) : [];
+    if (row.mp_preapproval_id && !assinaturas.some((a: any) => String(a.id) === String(row.mp_preapproval_id))) {
+      assinaturas.push(await chamarMercadoPago(config, `/preapproval/${encodeURIComponent(row.mp_preapproval_id)}`));
+    }
+    for (const assinatura of assinaturas) {
+      if (!["cancelled", "canceled", "finished", "expired"].includes(String(assinatura.status).toLowerCase())) {
+        await cancelarNoMercadoPago(config, String(assinatura.id), planoId);
+      }
+    }
+    if (!planoId) return;
+    try {
+      const fechado = await fecharPlano(config, planoId);
+      if (String(fechado?.id) !== planoId || String(fechado?.collector_id) !== config.mpCollectorId
+        || String(fechado?.external_reference) !== String(row.id) || fechado?.status !== "cancelled") {
+        throw new MercadoPagoError("Mercado Pago não confirmou o fechamento do plano");
+      }
+      return;
+    } catch (error) {
+      // Uma assinatura pode ter nascido depois da busca: reler e cancelar antes de tentar fechar.
+      if (!(error instanceof MercadoPagoError) || error.status !== 400) throw error;
+    }
   }
+  throw new MercadoPagoError("O cancelamento ainda não foi confirmado");
+}
+
+export async function sincronizarContratacao(config: Config, contratacao: any) {
+  if (!contratacao?.id) return null;
+  const row = await obterContratacao(config, String(contratacao.id));
+  if (!row) return null;
+  try {
+    let erroEncerramento: unknown = null;
+    try {
+      const extras = await rpcService(config, "planos_checkout_pendentes", { p_id: String(row.id) });
+      for (const extra of extras) {
+        try { await fecharPlano(config, String(extra.mp_plano_id)); }
+        catch (error) { erroEncerramento ??= error; }
+      }
+    } catch (error) { erroEncerramento ??= error; }
+    if (row.cancelamento_pendente) {
+      try { await efetivarCancelamento(config, row); }
+      catch (error) { erroEncerramento ??= error; }
+    }
+    // Dinheiro não espera a limpeza: importar faturas mesmo se o encerramento precisar de retentativa.
+    const resultado = await sincronizarDadosContratacao(config, row);
+    if (erroEncerramento !== null) throw erroEncerramento;
+    if (row.cancelamento_pendente) await rpcService(config, "concluir_cancelamento", { p_id: String(row.id) });
+    await rpcService(config, "marcar_sincronizada", { p_id: String(row.id) });
+    return resultado;
+  } catch (error) {
+    await rpcService(config, "marcar_falha_sincronizacao", { p_id: String(row.id) })
+      .catch(() => console.error("Não consegui registrar a falha da conferência", { contratacao_id: String(row.id) }));
+    throw error;
+  }
+}
+
+export async function cancelar(config: Config, userId: string) {
+  const rows = await listarContratacoesUsuario(config, userId);
+  const row = Array.isArray(rows) ? rows.find((r: any) => r.cancelamento_pendente
+    || ["checkout_pendente", "aguardando_pagamento", "ativa", "pausada", "falha_pagamento"].includes(r.estado)) : null;
+  if (!row) return null;
+  await rpcService(config, "solicitar_cancelamento", { p_id: String(row.id) });
+  await sincronizarContratacao(config, { id: row.id });
   return row.id;
 }
 
 export async function buscarContratacoesPendentes(config: Config, limite = 50) {
-  const url = `${config.supabaseUrl}/rest/v1/contratacoes?select=*&estado=in.(checkout_pendente,aguardando_pagamento,ativa,pausada,falha_pagamento)&order=sincronizada_em.asc.nullsfirst&limit=${Math.min(50, Math.max(1, limite))}`;
-  const res = await fetch(url, { headers: { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}` } });
-  if (!res.ok) throw new Error(`Falha ao listar contratações (${res.status})`);
-  const rows = await res.json();
+  const rows = await rpcService(config, "contratacoes_reconciliar", { p_limite: limite });
   return Array.isArray(rows) ? rows : [];
 }
 
@@ -343,14 +419,9 @@ async function lerContratacoes(config: Config, filtros: Record<string, string>) 
   return Array.isArray(rows) ? rows : [];
 }
 
-/* Contratações a conferir: todas as vivas e, das últimas 48 h, as abandonadas (link antigo pode ter sido pago). */
+/* Encerrar a recorrência não encerra a vida financeira das faturas. */
 export async function listarContratacoesUsuario(config: Config, userId: string) {
-  const conta = { user_id: `eq.${userId}` };
-  const vivas = await lerContratacoes(config, { ...conta, estado: "in.(checkout_pendente,aguardando_pagamento,ativa,pausada,falha_pagamento)" });
-  const abandonadas = await lerContratacoes(config, {
-    ...conta, estado: "eq.abandonada", criado_em: `gte.${new Date(Date.now() - 48 * 3600000).toISOString()}`,
-  });
-  return [...vivas, ...abandonadas];
+  return await rpcService(config, "contratacoes_para_usuario", { p_user: userId });
 }
 
 export async function contaTemContratacao(config: Config, userId: string) {

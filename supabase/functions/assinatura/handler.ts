@@ -58,7 +58,7 @@ export async function tratar(req: Request): Promise<Response> {
     let conferenciaOk = true;
     for (const row of await listarContratacoesUsuario(config, user.id)) {
       const sincronizada = Date.parse(String(row.sincronizada_em ?? "")) || 0;
-      if (agora - sincronizada < 4000) continue;
+      if (agora - sincronizada < 4000 && !row.conferencia_falhou && !row.cancelamento_pendente) continue;
       try { await sincronizarContratacao(config, row); }
       catch (error) {
         conferenciaOk = false;

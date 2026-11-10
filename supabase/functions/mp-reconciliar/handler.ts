@@ -1,5 +1,5 @@
 import { buscarContratacoesPendentes, sincronizarContratacao } from "../_shared/contratacao.ts";
-import { carregarConfig, responderJson, rpcService } from "../_shared/servidor.ts";
+import { carregarConfig, responderJson } from "../_shared/servidor.ts";
 
 function mesmaChave(a: string, b: string) {
   const enc = new TextEncoder();
@@ -22,23 +22,15 @@ export async function tratar(req: Request): Promise<Response> {
   }
   try {
     const rows = await buscarContratacoesPendentes(config, 50);
-    const agora = Date.now();
-    const elegiveis = rows.filter((row: any) => {
-      const sincronizada = Date.parse(String(row.sincronizada_em ?? "")) || 0;
-      const proxima = Date.parse(String(row.proxima_cobranca ?? "")) || 0;
-      return row.estado === "aguardando_pagamento" || !sincronizada || agora - sincronizada >= 6 * 3600000 || (proxima > 0 && proxima <= agora);
-    });
     let falhas = 0;
-    for (const row of elegiveis) {
+    for (const row of rows) {
       try { await sincronizarContratacao(config, row); }
       catch (error) {
         falhas += 1;
         console.error("Falha ao reconciliar uma contratação", { contratacao_id: String(row.id), tipo: error instanceof Error ? error.name : "erro" });
-        // Linha que falha sempre não pode ocupar a fila na frente das outras.
-        await rpcService(config, "marcar_sincronizada", { p_id: String(row.id) }).catch((erro) => console.error("Não consegui marcar a conferência", erro?.name));
       }
     }
-    return responderJson(req, config, 200, { ok: true, sincronizadas: elegiveis.length - falhas, falhas });
+    return responderJson(req, config, 200, { ok: true, sincronizadas: rows.length - falhas, falhas });
   } catch (error) {
     console.error("Falha na reconciliação de assinaturas", { tipo: error instanceof Error ? error.name : "erro" });
     return responderJson(req, config, 502, { erro: "mp_falhou" });

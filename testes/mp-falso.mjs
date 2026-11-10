@@ -186,7 +186,8 @@ export function criarMpFalso({ collectorId = "123456", token = "TEST-ACCESS-TOKE
       const results = [...assinaturas.values()].filter((item) =>
         !planId || item.preapproval_plan_id === planId);
       const limit = Math.min(Number(url.searchParams.get("limit") ?? 100), 100);
-      return responder(res, 200, { results: results.slice(0, limit), paging: { limit, total: results.length } });
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      return responder(res, 200, { results: results.slice(offset, offset + limit), paging: { limit, offset, total: results.length } });
     }
 
     if (url.pathname.startsWith("/preapproval/")) {

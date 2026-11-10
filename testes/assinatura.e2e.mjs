@@ -23,7 +23,10 @@ const requestJson = async (url, options = {}) => {
 const supa = await criarSupabaseFalso();
 const mp = criarMpFalso();
 const supaServer = await server((req, res) => supa.tratar(req, res, req.url.split("?")[0].replace(/^\//, "")));
-const mpServer = await server(mp.tratar);
+const mpServer = await server(async (req, res) => {
+  if (mp.antesPedido) await mp.antesPedido(req);
+  return mp.tratar(req, res);
+});
 const free = await server((_req, res) => res.end());
 const functionsPort = free.address().port;
 await fecharServidor(free);
@@ -679,10 +682,443 @@ try {
     assert.equal(r.body.erro, "servico");
   });
 
-  await cena("Logs sem e-mail nem token", async () => {
+  await cena("Revisão 4: pagamento durante cancelamento é cancelado antes de confirmar sucesso", async () => {
+    const c = await novaConta();
+    const checkout = await criar(c);
+    let pago;
+    mp.antesPedido = (req) => {
+      if (req.method === "PUT" && req.url === `/preapproval_plan/${planoDe(checkout)}`) {
+        mp.antesPedido = null;
+        pago = mp.pagarPlano(planoDe(checkout));
+      }
+    };
+    try {
+      const r = await chamar(c, { acao: "cancelar" });
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+      assert.equal(mp.assinaturas.get(pago.assinatura.id).status, "cancelled");
+      assert.equal(mp.planos.get(planoDe(checkout)).status, "cancelled");
+      assert.ok(r.body.situacao.pago_ate, "o pagamento durante a corrida conserva o período inteiro");
+    } finally { mp.antesPedido = null; }
+  });
+
+  await cena("Revisão 4: falha no cancelamento persiste o pedido, bloqueia outra contratação e permite retentar", async () => {
+    for (const plano of ["mensal", "anual"]) {
+      const c = await novaConta();
+      const { checkout, pago } = await assinar(c, plano);
+      const antes = await conferir(c);
+      mp.falharProxima("PUT", `/preapproval/${pago.assinatura.id}`, 500);
+      const erro = await chamar(c, { acao: "cancelar" });
+      assert.equal(erro.status, 502, "não anuncia cancelamento antes da confirmação");
+      assert.equal((await linha(checkout.contratacao_id)).cancelamento_pendente, true);
+      assert.equal((await chamar(c, { acao: "criar", plano })).status, 409);
+      const r = await chamar(c, { acao: "cancelar" });
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+      assert.equal(r.body.situacao.pago_ate, antes.pago_ate);
+      assert.equal(r.body.situacao.liberado_ate, antes.pago_ate, "cancelar só remove a tolerância, nunca dias pagos");
+      assert.equal(mp.assinaturas.get(pago.assinatura.id).status, "cancelled");
+      assert.equal((await linha(checkout.contratacao_id)).cancelamento_pendente, false);
+    }
+  });
+
+  await cena("Revisão 1: retomadas concorrentes depois de 20 s entregam somente um plano e o pagamento é reconhecido", async () => {
+    const c = await novaConta();
+    mp.falharRespostaCriacao = true;
+    assert.equal((await chamar(c, { acao: "criar", plano: "mensal" })).status, 502);
+    await supa.sql("update public.contratacoes set criado_em=now()-interval '30 seconds' where user_id=$1", [c.user.id]);
+    const antes = mp.planos.size;
+    mp.antesPedido = async (req) => {
+      if (req.method === "POST" && req.url === "/preapproval_plan") await new Promise((r) => setTimeout(r, 100));
+    };
+    let rs;
+    try { rs = await Promise.all(Array.from({ length: 3 }, () => chamar(c, { acao: "criar", plano: "mensal" }))); }
+    finally { mp.antesPedido = null; }
+    const ok = rs.filter((r) => r.status === 200);
+    assert.ok(ok.length > 0);
+    assert.equal(new Set(ok.map((r) => r.body.init_point)).size, 1, "nenhum link entregue pode perder o vínculo");
+    assert.equal(mp.planos.size - antes, 1, "a retomada é reservada antes da chamada remota");
+    mp.pagarPlano(planoDe(ok[0].body));
+    assert.ok((await conferir(c)).pago_ate);
+  });
+
+  await cena("Revisão 2: estorno ou contestação antes da primeira importação vence a fatura ainda aprovada", async () => {
+    for (const status of ["refunded", "charged_back"]) {
+      const c = await novaConta();
+      const { pago } = await assinar(c);
+      mp.pagamentos.get(String(pago.pagamento.id)).status = status;
+      const r = await aviso({ tipo: "payment", id: pago.pagamento.id });
+      assert.equal(r.status, 200);
+      const s = await conferir(c);
+      assert.equal(s.pago_ate, null, status);
+      assert.equal(s.cobrancas[0].estado, "estornada");
+      await Promise.all([aviso({ tipo: "subscription_authorized_payment", id: pago.fatura.id }), conferir(c)]);
+      assert.equal((await conferir(c)).pago_ate, null, "aprovação velha não desfaz estorno persistido");
+    }
+  });
+
+  await cena("Revisão 3: contestação da mais antiga ou intermediária recalcula todos os períodos dependentes", async () => {
+    for (const indice of [0, 1]) {
+      const c = await novaConta();
+      await supa.sql("update auth.users set created_at='2025-01-01Z' where id=$1", [c.user.id]);
+      const checkout = await criar(c);
+      const pagos = Array.from({ length: 3 }, () => mp.pagarPlano(planoDe(checkout)));
+      for (const p of pagos) mp.faturas.get(String(p.fatura.id)).debit_date = "2026-11-01T12:00:00Z";
+      assert.equal(Date.parse((await conferir(c)).pago_ate), Date.parse("2027-02-01T12:00:00Z"));
+      mp.pagamentos.get(String(pagos[indice].pagamento.id)).status = "charged_back";
+      await aviso({ tipo: "payment", id: pagos[indice].pagamento.id });
+      assert.equal(Date.parse((await conferir(c)).pago_ate), Date.parse("2027-01-01T12:00:00Z"));
+      assert.equal(Date.parse((await conferir(c)).pago_ate), Date.parse("2027-01-01T12:00:00Z"), "repetir não altera validade");
+    }
+  });
+
+  await cena("Revisão 3: contestação de plano anterior retira sua contribuição do plano atual", async () => {
+    const c = await novaConta();
+    await supa.sql("update auth.users set created_at='2025-01-01Z' where id=$1", [c.user.id]);
+    const mensal = await assinar(c);
+    mp.faturas.get(String(mensal.pago.fatura.id)).debit_date = "2026-11-01T12:00:00Z";
+    await conferir(c);
+    await chamar(c, { acao: "cancelar" });
+    const anual = await assinar(c, "anual");
+    mp.faturas.get(String(anual.pago.fatura.id)).debit_date = "2026-11-01T12:00:00Z";
+    assert.equal(Date.parse((await conferir(c)).pago_ate), Date.parse("2027-12-01T12:00:00Z"));
+    mp.pagamentos.get(String(mensal.pago.pagamento.id)).status = "charged_back";
+    await aviso({ tipo: "payment", id: mensal.pago.pagamento.id });
+    assert.equal(Date.parse((await conferir(c)).pago_ate), Date.parse("2027-11-01T12:00:00Z"));
+  });
+
+  await cena("Revisão 5: conferir recupera estorno sem webhook de assinatura cancelada mesmo com fatura desatualizada", async () => {
+    const c = await novaConta();
+    const { pago } = await assinar(c);
+    await conferir(c);
+    await chamar(c, { acao: "cancelar" });
+    mp.estornar(pago.pagamento.id, { faturaMuda: false });
+    const s = await conferir(c);
+    assert.equal(s.pago_ate, null);
+    assert.equal(s.cobrancas[0].estado, "estornada");
+  });
+
+  await cena("Revisão 5: cron recupera aprovação tardia de fatura de assinatura cancelada", async () => {
+    const c = await novaConta();
+    const checkout = await criar(c);
+    const pago = mp.pagarPlano(planoDe(checkout), { pagamentoStatus: "pending" });
+    await conferir(c);
+    await chamar(c, { acao: "cancelar" });
+    mp.faturas.get(String(pago.fatura.id)).payment.status = "approved";
+    mp.pagamentos.get(String(pago.pagamento.id)).status = "approved";
+    await supa.sql("update public.contratacoes set sincronizada_em=null where id=$1", [checkout.contratacao_id]);
+    await requestJson(`${functionsBase}/functions/v1/mp-reconciliar`, { method: "POST", headers: { "x-reconciliar-chave": "chave-local-e2e" } });
+    const rows = await supa.sql("select estado,valido_ate from public.cobrancas where contratacao_id=$1", [checkout.contratacao_id]);
+    assert.equal(rows[0].estado, "aprovada");
+    assert.ok(rows[0].valido_ate);
+    assert.equal((await linha(checkout.contratacao_id)).estado, "cancelada");
+  });
+
+  await cena("Revisão 6: cron que falha não grava sucesso e conferir não responde true sem consultar", async () => {
+    await supa.sql("update public.contratacoes set sincronizada_em=now(),proxima_cobranca=null");
+    const c = await novaConta();
+    const checkout = await criar(c);
+    await supa.sql("update public.contratacoes set sincronizada_em=now()-interval '1 day' where id=$1", [checkout.contratacao_id]);
+    const antes = (await linha(checkout.contratacao_id)).sincronizada_em;
+    mp.falharProxima("GET", `/preapproval_plan/${planoDe(checkout)}`, 500);
+    const cron = await requestJson(`${functionsBase}/functions/v1/mp-reconciliar`, { method: "POST", headers: { "x-reconciliar-chave": "chave-local-e2e" } });
+    assert.ok(cron.body.falhas >= 1);
+    assert.equal(String((await linha(checkout.contratacao_id)).sincronizada_em), String(antes), "falha preserva a data do último sucesso");
+    mp.falharProxima("GET", `/preapproval_plan/${planoDe(checkout)}`, 500);
+    const r = await chamar(c, { acao: "conferir" });
+    assert.equal(r.body.conferencia_ok, false);
+    assert.equal((await chamar(c, { acao: "conferir" })).body.conferencia_ok, true, "nova tentativa bem-sucedida limpa o erro");
+  });
+
+  await cena("Revisão 7: cinquenta contratos ainda não elegíveis não escondem a cobrança vencida", async () => {
+    await supa.sql("update public.contratacoes set sincronizada_em=now(),tentada_em=now(),proxima_cobranca=null,conferencia_falhou=false,reconciliar_apos=null");
+    await supa.sql(`with us as (
+      insert into auth.users(id,email) select gen_random_uuid(),'fila-'||n||'@teste.local' from generate_series(1,50) n returning id
+    ) insert into public.contratacoes(user_id,plano,valor_inicial,valor_recorrente,estado,sincronizada_em)
+      select id,'mensal',19.9,19.9,'ativa',now()-interval '1 hour' from us`);
+    const c = await novaConta();
+    const { checkout } = await assinar(c);
+    await supa.sql("update public.contratacoes set sincronizada_em=now()-interval '30 minutes',proxima_cobranca=now()-interval '1 minute' where id=$1", [checkout.contratacao_id]);
+    const r = await requestJson(`${functionsBase}/functions/v1/mp-reconciliar`, { method: "POST", headers: { "x-reconciliar-chave": "chave-local-e2e" } });
+    assert.equal(r.status, 200);
+    assert.ok(r.body.sincronizadas >= 1);
+    assert.equal((await linha(checkout.contratacao_id)).estado, "ativa");
+  });
+
+  await cena("Migração nova aplica sobre dados existentes, corrige estorno antigo e preserva anual cancelada e permissões", async () => {
+    const antigo = await criarSupabaseFalso({ ateMigracao: "202611060001_assinatura_recorrente.sql" });
+    try {
+      await antigo.sql("select set_config('request.jwt.claims','{\"role\":\"service_role\"}',false)");
+      const u = randomUUID(), a = randomUUID();
+      await antigo.sql("insert into auth.users(id,email,created_at) values($1,'anterior@teste.local','2025-01-01Z'),($2,'anual-antiga@teste.local','2025-01-01Z')", [u, a]);
+      const m = (await antigo.sql("select public.iniciar_contratacao($1,'mensal') r", [u]))[0].r;
+      for (let i = 1; i <= 3; i++) await antigo.sql("select public.registrar_cobranca($1,$2,$3,14.9,'aprovada','processed','approved','2026-11-01T12:00:00Z')", [`f${i}`, m.id, `p${i}`]);
+      await antigo.sql("select public.estornar_por_pagamento('p1','charged_back')");
+      const an = (await antigo.sql("select public.iniciar_contratacao($1,'anual') r", [a]))[0].r;
+      await antigo.sql("select public.registrar_cobranca('anual',$1,'pa',149.9,'aprovada','processed','approved','2026-11-01T12:00:00Z')", [an.id]);
+      await antigo.sql("select public.aplicar_preapproval($1,'sub-anual','cancelled',now(),null)", [an.id]);
+      const antes = (await antigo.sql("select valido_ate from public.cobrancas where mp_cobranca_id='anual'"))[0].valido_ate;
+      await antigo.migrar("202611080001_revisao_assinatura.sql");
+      const max = (await antigo.sql("select max(valido_ate) fim from public.cobrancas where user_id=$1 and estado='aprovada'", [u]))[0].fim;
+      assert.equal(Date.parse(max), Date.parse("2027-01-01T12:00:00Z"));
+      assert.equal(String((await antigo.sql("select valido_ate from public.cobrancas where mp_cobranca_id='anual'"))[0].valido_ate), String(antes));
+      assert.equal((await antigo.sql("select count(*)::int n from public.cobrancas"))[0].n, 4);
+      for (const tabela of ["contratacoes", "cobrancas", "planos_checkout", "estornos_pagamento"]) {
+        assert.equal((await antigo.sql("select has_table_privilege('authenticated',$1,'SELECT') ok", [`public.${tabela}`]))[0].ok, false);
+      }
+      assert.equal((await antigo.sql("select has_function_privilege('authenticated','public.contratacoes_para_usuario(uuid)','EXECUTE') ok"))[0].ok, false);
+    } finally { await antigo.fechar(); }
+  });
+
+  await cena("Revisão 1: resposta de trabalhador vencido não troca o link e seu plano é fechado mesmo após falha", async () => {
+    for (const falharFechamento of [false, true]) {
+      const c = await novaConta();
+      let liberar, entrou;
+      const bloqueio = new Promise((r) => { liberar = r; });
+      const iniciou = new Promise((r) => { entrou = r; });
+      mp.antesPedido = async (req) => {
+        if (req.method === "POST" && req.url === "/preapproval_plan") { entrou(); await bloqueio; }
+      };
+      const primeira = chamar(c, { acao: "criar", plano: "mensal" });
+      try {
+        await iniciou;
+        await supa.sql("update public.contratacoes set criado_em=now()-interval '2 minutes',checkout_reservado_ate=now()-interval '1 second' where user_id=$1", [c.user.id]);
+        mp.antesPedido = null;
+        const retomada = await criar(c);
+        if (falharFechamento) mp.falharProxima("PUT", "/preapproval_plan/", 500);
+        liberar();
+        assert.equal((await primeira).status, falharFechamento ? 502 : 409);
+        assert.equal((await linha(retomada.contratacao_id)).mp_plano_id, planoDe(retomada));
+        mp.pagarPlano(planoDe(retomada));
+        assert.ok((await conferir(c)).pago_ate);
+        for (const plano of mp.planos.values()) {
+          if (plano.external_reference === retomada.contratacao_id && plano.id !== planoDe(retomada)) {
+            assert.equal(plano.status, "cancelled");
+            assert.ok((await supa.sql("select fechado_em from public.planos_checkout where mp_plano_id=$1", [plano.id]))[0].fechado_em);
+          }
+        }
+      } finally { mp.antesPedido = null; liberar(); await primeira; }
+    }
+  });
+
+  await cena("Duplicidade fica identificada para devolução manual integral do pagamento mais novo", async () => {
+    const c = await novaConta();
+    const checkout = await criar(c);
+    const primeira = mp.pagarPlano(planoDe(checkout));
+    const segunda = mp.pagarPlano(planoDe(checkout));
+    await conferir(c);
+    const rows = await supa.sql("select mp_pagamento_id,mp_assinatura_id,duplicada,valor from public.cobrancas where contratacao_id=$1 order by duplicada", [checkout.contratacao_id]);
+    assert.equal(rows[0].mp_pagamento_id, String(primeira.pagamento.id));
+    assert.equal(rows[0].duplicada, false);
+    assert.equal(rows[1].mp_pagamento_id, String(segunda.pagamento.id));
+    assert.equal(rows[1].mp_assinatura_id, segunda.assinatura.id);
+    assert.equal(rows[1].duplicada, true);
+    assert.equal(Number(rows[1].valor), segunda.pagamento.transaction_amount);
+    assert.equal(mp.assinaturas.get(segunda.assinatura.id).status, "cancelled");
+    assert.ok(mp.pedidos.every((p) => !p.path.includes("refund")), "nenhuma devolução automática foi chamada");
+  });
+
+  await cena("Cancelamento preserva o período mensal e anual em fim de mês e ano bissexto", async () => {
+    for (const [plano, debito, fim] of [
+      ["mensal", "2028-01-31T12:00:00Z", "2028-02-29T12:00:00Z"],
+      ["anual", "2028-02-29T12:00:00Z", "2029-02-28T12:00:00Z"],
+    ]) {
+      const c = await novaConta();
+      await supa.sql("update auth.users set created_at='2025-01-01Z' where id=$1", [c.user.id]);
+      const { pago } = await assinar(c, plano);
+      mp.faturas.get(String(pago.fatura.id)).debit_date = debito;
+      mp.assinaturas.get(pago.assinatura.id).next_payment_date = fim;
+      const antes = await conferir(c);
+      assert.equal(Date.parse(antes.pago_ate), Date.parse(fim));
+      const r = await chamar(c, { acao: "cancelar" });
+      assert.equal(r.status, 200);
+      assert.equal(r.body.situacao.pago_ate, antes.pago_ate);
+      assert.equal(Date.parse(r.body.situacao.liberado_ate), Date.parse(fim));
+    }
+  });
+
+  await cena("Cancelamento pendente é retomado pelo cron sem novo clique e sem confirmação falsa", async () => {
+    const c = await novaConta();
+    const checkout = await criar(c);
+    mp.falharProxima("PUT", `/preapproval_plan/${planoDe(checkout)}`, 500);
+    const r = await chamar(c, { acao: "cancelar" });
+    assert.equal(r.status, 502);
+    assert.equal((await linha(checkout.contratacao_id)).cancelamento_pendente, true);
+    await supa.sql("update public.contratacoes set reconciliar_apos=now()-interval '1 second' where id=$1", [checkout.contratacao_id]);
+    await requestJson(`${functionsBase}/functions/v1/mp-reconciliar`, { method: "POST", headers: { "x-reconciliar-chave": "chave-local-e2e" } });
+    const row = await linha(checkout.contratacao_id);
+    assert.equal(row.cancelamento_pendente, false);
+    assert.equal(row.estado, "abandonada", "checkout sem assinatura nem cobrança não vira assinatura cancelada");
+    assert.equal(mp.planos.get(planoDe(checkout)).status, "cancelled");
+  });
+
+  await cena("Ajuste 1: falha persistente de limpeza ou cancelamento não impede importar renovação e estorno", async () => {
+    for (const falha of ["limpeza", "cancelamento_pending"]) {
+      const c = await novaConta();
+      const { checkout, pago } = await assinar(c);
+      await conferir(c);
+      const renovacao = mp.cobrarAssinatura(pago.assinatura.id, { debitoEmDias: 30 });
+      mp.estornar(pago.pagamento.id, { faturaMuda: false });
+      let caminho;
+      if (falha === "limpeza") {
+        const extra = await requestJson(`${mpBase}/preapproval_plan`, {
+          method: "POST", headers: { Authorization: "Bearer TEST-ACCESS-TOKEN", "Content-Type": "application/json" },
+          body: JSON.stringify({ external_reference: checkout.contratacao_id }),
+        });
+        caminho = `/preapproval_plan/${extra.body.id}`;
+        await supa.sql("insert into public.planos_checkout(mp_plano_id,contratacao_id) values($1,$2)", [extra.body.id, checkout.contratacao_id]);
+      } else {
+        const extra = mp.pagarPlano(planoDe(checkout), { pagamentoStatus: "pending" });
+        mp.assinaturas.get(extra.assinatura.id).status = "pending";
+        caminho = `/preapproval/${extra.assinatura.id}`;
+      }
+      mp.antesPedido = (req) => {
+        if (req.method === "PUT" && req.url === caminho) mp.falharProxima("PUT", caminho, 400);
+      };
+      try {
+        await supa.sql("update public.contratacoes set sincronizada_em=null where id=$1", [checkout.contratacao_id]);
+        for (let i = 0; i < 2; i++) {
+          const r = await chamar(c, { acao: falha === "limpeza" ? "conferir" : "cancelar" });
+          assert.equal(r.status, falha === "limpeza" ? 200 : 502);
+          if (falha === "limpeza") assert.equal(r.body.conferencia_ok, false);
+          const rows = await supa.sql("select mp_pagamento_id,estado from public.cobrancas where contratacao_id=$1", [checkout.contratacao_id]);
+          assert.equal(rows.find((b) => b.mp_pagamento_id === String(pago.pagamento.id))?.estado, "estornada", falha);
+          assert.equal(rows.find((b) => b.mp_pagamento_id === String(renovacao.pagamento.id))?.estado, "aprovada", falha);
+          const row = await linha(checkout.contratacao_id);
+          assert.equal(row.sincronizada_em, null, "importar finanças não transforma falha de encerramento em sucesso");
+          assert.equal(row.conferencia_falhou, true);
+          if (falha !== "limpeza") {
+            assert.equal(row.cancelamento_pendente, true);
+            assert.equal((await chamar(c, { acao: "criar", plano: "mensal" })).status, 409);
+          }
+        }
+      } finally { mp.antesPedido = null; }
+      assert.equal((await chamar(c, { acao: "cancelar" })).status, 200);
+    }
+  });
+
+  const filaReconciliacao = async () => {
+    const r = await requestJson(`${supaBase}/rest/v1/rpc/contratacoes_reconciliar`, {
+      method: "POST", headers: { apikey: supa.chaveServico, Authorization: `Bearer ${supa.chaveServico}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_limite: 50 }),
+    });
+    assert.equal(r.status, 200);
+    return r.body;
+  };
+
+  await cena("Ajuste 2: cancelamento e falha precedem viva vencida, que precede mais de 50 finais elegíveis", async () => {
+    await supa.sql("update public.contratacoes set sincronizada_em=now(),tentada_em=now(),proxima_cobranca=null,conferencia_falhou=false,reconciliar_apos=null");
+    const historico = await novaConta();
+    await supa.sql(`with cs as (
+      insert into public.contratacoes(user_id,plano,valor_inicial,valor_recorrente,estado,mp_plano_id,sincronizada_em,tentada_em)
+      select $1,'mensal',19.9,19.9,'cancelada','final-prioridade-'||n,now()-interval '3 days',now()-interval '3 days'
+      from generate_series(1,51) n returning id
+    ) insert into public.cobrancas(mp_cobranca_id,contratacao_id,user_id,valor,estado,mp_status,debitada_em)
+      select 'historico-'||id,id,$1,19.9,'aprovada','processed',now()-interval '3 days' from cs`, [historico.user.id]);
+    const finais = await supa.sql("select id from public.contratacoes where user_id=$1 order by id", [historico.user.id]);
+    await supa.sql("update public.contratacoes set cancelamento_pendente=true where id=$1", [finais[0].id]);
+    await supa.sql("update public.contratacoes set conferencia_falhou=true where id=$1", [finais[1].id]);
+    const c = await novaConta();
+    const { checkout } = await assinar(c);
+    await supa.sql("update public.contratacoes set sincronizada_em=now()-interval '30 minutes',tentada_em=now()-interval '30 minutes',proxima_cobranca=now()-interval '1 minute' where id=$1", [checkout.contratacao_id]);
+    const ids = (await filaReconciliacao()).map((r) => r.id);
+    const viva = ids.indexOf(checkout.contratacao_id);
+    assert.ok(viva >= 0, "a viva vencida não pode ficar fora do lote de 50");
+    assert.ok(ids.indexOf(finais[0].id) < viva, "cancelamento vem antes da viva");
+    assert.ok(ids.indexOf(finais[1].id) < viva, "falha vem antes da viva");
+    assert.ok(ids.indexOf(finais[2].id) > viva, "revisão final vem depois da viva");
+    assert.equal(ids.length, 50);
+  });
+
+  await cena("Ajuste 2: sessenta abandonadas antigas sem cobrança não pedem conferência nem chamam o MP", async () => {
+    const c = await novaConta();
+    await supa.sql(`insert into public.contratacoes(user_id,plano,valor_inicial,valor_recorrente,estado,mp_plano_id,criado_em,conferencia_falhou)
+      select $1,'mensal',19.9,19.9,'abandonada','abandonada-antiga-'||n,now()-interval '49 hours',n%2=0
+      from generate_series(1,60) n`, [c.user.id]);
+    const antigas = await supa.sql("select id from public.contratacoes where user_id=$1", [c.user.id]);
+    await supa.sql("insert into public.planos_checkout(mp_plano_id,contratacao_id) values('extra-antigo',$1)", [antigas[0].id]);
+    const situacao = await requestJson(`${supaBase}/rest/v1/rpc/minha_situacao`, {
+      method: "POST", headers: { apikey: supa.chave, Authorization: `Bearer ${c.access_token}`, "Content-Type": "application/json" }, body: "{}",
+    });
+    assert.equal(situacao.body.conferir, false, "erro e plano excedente também não ressuscitam tentativa vazia antiga");
+    assert.ok((await filaReconciliacao()).every((r) => r.user_id !== c.user.id));
+    const antes = mp.pedidos.length;
+    const r = await chamar(c, { acao: "conferir" });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.conferencia_ok, true);
+    assert.equal(r.body.situacao.conferir, false);
+    assert.equal(mp.pedidos.length - antes, 0, "nem faturas nem limpeza das tentativas excluídas chamam o MP");
+  });
+
+  await cena("Ajuste 3: checkout vazio termina abandonado; assinatura ou cobrança termina cancelada sem perder período", async () => {
+    for (const caso of ["vazio", "somente_assinatura", "somente_cobranca"]) {
+      const c = await novaConta();
+      await supa.sql("update auth.users set created_at='2025-01-01Z' where id=$1", [c.user.id]);
+      const checkout = await criar(c);
+      if (caso === "somente_assinatura") {
+        const pago = mp.pagarPlano(planoDe(checkout));
+        mp.faturas.delete(String(pago.fatura.id));
+      } else if (caso === "somente_cobranca") {
+        await supa.sql(`insert into public.cobrancas(mp_cobranca_id,contratacao_id,user_id,valor,estado,mp_status,debitada_em)
+          values($1,$2,$3,19.9,'aprovada','processed',now())`, [`cobranca-${c.user.id}`, checkout.contratacao_id, c.user.id]);
+      }
+      const antes = await conferir(c);
+      const r = await chamar(c, { acao: "cancelar" });
+      assert.equal(r.status, 200);
+      const row = await linha(checkout.contratacao_id);
+      assert.equal(row.estado, caso === "vazio" ? "abandonada" : "cancelada", caso);
+      assert.equal(row.cancelamento_pendente, false);
+      assert.equal(r.body.situacao.pago_ate, antes.pago_ate);
+      if (caso === "vazio") {
+        assert.equal(r.body.situacao.assinatura, null, "sem assinatura cancelada na conta de quem nunca assinou");
+        assert.equal(row.cancelada_em, null);
+      }
+    }
+  });
+
+  await cena("Ajuste 2: janela preserva abandonada recente e abandonada antiga com cobrança", async () => {
+    const recente = await novaConta();
+    const checkout = await criar(recente);
+    await supa.sql("update public.contratacoes set estado='abandonada',criado_em=now()-interval '47 hours' where id=$1", [checkout.contratacao_id]);
+    const antiga = await novaConta();
+    const { checkout: pagoCheckout, pago } = await assinar(antiga);
+    await conferir(antiga);
+    await chamar(antiga, { acao: "cancelar" });
+    await supa.sql("update public.contratacoes set estado='abandonada',criado_em=now()-interval '49 hours',sincronizada_em=null,tentada_em=now()-interval '4 days' where id=$1", [pagoCheckout.contratacao_id]);
+    const ids = (await filaReconciliacao()).map((r) => r.id);
+    assert.ok(ids.includes(checkout.contratacao_id), "tentativa vazia recente continua na janela");
+    assert.ok(ids.includes(pagoCheckout.contratacao_id), "existência de cobrança mantém a revisão financeira após 48 h");
+    assert.equal((await chamar(recente, { acao: "conferir" })).body.conferencia_ok, true);
+    assert.equal(mp.planos.get(planoDe(checkout)).status, "cancelled");
+    mp.estornar(pago.pagamento.id, { faturaMuda: false });
+    const antes = mp.pedidos.length;
+    const s = await conferir(antiga);
+    assert.equal(s.pago_ate, null);
+    assert.equal(s.cobrancas[0].estado, "estornada");
+    assert.ok(mp.pedidos.length > antes, "faturas antigas continuam consultadas");
+  });
+
+  await cena("Cancelamento pendente de checkout antigo não é abandonado pela expiração nem sai da fila", async () => {
+    const c = await novaConta();
+    const checkout = await criar(c);
+    await supa.sql("update public.contratacoes set criado_em=now()-interval '49 hours',expira_em=now()-interval '1 hour' where id=$1", [checkout.contratacao_id]);
+    const caminho = `/preapproval_plan/${planoDe(checkout)}`;
+    mp.antesPedido = (req) => { if (req.method === "PUT" && req.url === caminho) mp.falharProxima("PUT", caminho, 500); };
+    try {
+      assert.equal((await chamar(c, { acao: "cancelar" })).status, 502);
+      const row = await linha(checkout.contratacao_id);
+      assert.equal(row.estado, "checkout_pendente", "expiração não descarta pedido de cancelamento ainda em curso");
+      assert.equal(row.cancelamento_pendente, true);
+      assert.equal((await chamar(c, { acao: "criar", plano: "mensal" })).status, 409);
+      await supa.sql("update public.contratacoes set reconciliar_apos=now()-interval '1 second',tentada_em=now()-interval '4 days' where id=$1", [checkout.contratacao_id]);
+      assert.ok((await filaReconciliacao()).some((r) => r.id === checkout.contratacao_id));
+    } finally { mp.antesPedido = null; }
+    assert.equal((await chamar(c, { acao: "cancelar" })).status, 200);
+    assert.equal((await linha(checkout.contratacao_id)).estado, "abandonada");
+  });
+
+  await cena("Logs sem e-mail nem token, incluindo os novos caminhos de falha", async () => {
     assert.ok(!/TEST-ACCESS-TOKEN/.test(logDeno), "token no log");
     assert.ok(!/segredo-local-e2e|chave-local-e2e/.test(logDeno), "segredo no log");
-    assert.ok(!/[\w.-]+@[\w-]+\.[\w.-]+/.test(logDeno), `e-mail no log: ${logDeno.match(/[\w.-]+@[\w-]+\.[\w.-]+/)}`);
+    assert.ok(!/[\w.-]+@[\w-]+\.[\w.-]+/.test(logDeno), "e-mail no log");
   });
 
   console.log(`\nResultado: ${cenarios} cenários passaram, 0 falhas.`);

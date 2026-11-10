@@ -12,7 +12,7 @@ const b64=x=>Buffer.from(x).toString('base64url');
 const json=(res,status,obj)=>{res.statusCode=status;res.setHeader('Content-Type','application/json');res.end(JSON.stringify(obj));};
 const erro=(code,error_code,msg)=>({code,error_code,msg});
 
-export async function criarSupabaseFalso(){
+export async function criarSupabaseFalso({ateMigracao}={}){
   const db=new PGlite(); let fila=Promise.resolve();
   const serial=fn=>{const atual=fila.then(fn);fila=atual.catch(()=>{});return atual;};
   await db.exec(`create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
@@ -23,7 +23,7 @@ export async function criarSupabaseFalso(){
     create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
     grant usage on schema auth to anon,authenticated,service_role;
     grant execute on function auth.uid(),auth.jwt() to anon,authenticated,service_role;`);
-  for(const file of (await readdir(path.join(raiz,'supabase/migrations'))).filter(x=>x.endsWith('.sql')).sort())
+  for(const file of (await readdir(path.join(raiz,'supabase/migrations'))).filter(x=>x.endsWith('.sql')&&(!ateMigracao||x<=ateMigracao)).sort())
     await db.exec(await readFile(path.join(raiz,'supabase/migrations',file),'utf8'));
   let falharAuth=false;
   const contas=new Map(), sessoes=new Map(), refreshs=new Map(), preferencias=new Map(), pagamentos=new Map(), pedidos=[];
@@ -167,9 +167,19 @@ export async function criarSupabaseFalso(){
           registrar_compra:{keys:['p_payment_id','p_user','p_valor','p_aprovado','p_plano'],sql:'public.registrar_compra($1,$2,$3,$4,$5)'},
           iniciar_contratacao:{keys:['p_user','p_plano'],sql:'public.iniciar_contratacao($1,$2)'},
           gravar_checkout:{keys:['p_id','p_mp_plano_id','p_init_point'],sql:'public.gravar_checkout($1,$2,$3)'},
+          confirmar_checkout:{keys:['p_id','p_operacao','p_mp_plano_id','p_init_point'],sql:'public.confirmar_checkout($1,$2,$3,$4)'},
+          liberar_checkout:{keys:['p_id','p_operacao'],sql:'public.liberar_checkout($1,$2)'},
+          marcar_plano_fechado:{keys:['p_mp_plano_id'],sql:'public.marcar_plano_fechado($1)'},
+          planos_checkout_pendentes:{keys:['p_id'],sql:'public.planos_checkout_pendentes($1)'},
+          registrar_cobranca_assinatura:{keys:['p_mp_cobranca_id','p_contratacao','p_pagamento','p_valor','p_estado','p_mp_status','p_pag_status','p_debitada','p_assinatura','p_duplicada'],sql:'public.registrar_cobranca_assinatura($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)'},
+          contratacoes_reconciliar:{keys:['p_limite'],sql:'public.contratacoes_reconciliar($1)'},
+          contratacoes_para_usuario:{keys:['p_user'],sql:'public.contratacoes_para_usuario($1)'},
           fechar_contratacao:{keys:['p_id','p_estado'],sql:'public.fechar_contratacao($1,$2)'},
+          solicitar_cancelamento:{keys:['p_id'],sql:'public.solicitar_cancelamento($1)'},
+          concluir_cancelamento:{keys:['p_id'],sql:'public.concluir_cancelamento($1)'},
           estornar_por_pagamento:{keys:['p_pagamento','p_status'],sql:'public.estornar_por_pagamento($1,$2)'},
           marcar_sincronizada:{keys:['p_id'],sql:'public.marcar_sincronizada($1)'},
+          marcar_falha_sincronizacao:{keys:['p_id'],sql:'public.marcar_falha_sincronizacao($1)'},
           aplicar_preapproval:{keys:['p_id','p_mp_id','p_status','p_ultima_mudanca','p_proxima'],sql:'public.aplicar_preapproval($1,$2,$3,$4,$5)'},
           registrar_cobranca:{keys:['p_mp_cobranca_id','p_contratacao','p_pagamento','p_valor','p_estado','p_mp_status','p_pag_status','p_debitada'],sql:'public.registrar_cobranca($1,$2,$3,$4,$5,$6,$7,$8)'},
           registrar_evento:{keys:['p_chave','p_tipo','p_acao','p_mp_id','p_ao_vivo'],sql:'public.registrar_evento($1,$2,$3,$4,$5)'},
@@ -261,5 +271,7 @@ export async function criarSupabaseFalso(){
     envelhecerConta,aprovarMensal,aprovarAnual,estornarPagamento,pagarPlano:pagarPlanoFake,cobrarAssinatura:cobrarAssinaturaFake,
     get falharAuth(){return falharAuth;},set falharAuth(x){falharAuth=!!x;},
     desconfirmar(id){const u=contas.get(id);if(u)u.email_confirmed_at=null;for(const s of sessoes.values())if(s.user?.id===id)s.user.email_confirmed_at=null;},
-    preferencias,pagamentos,planosMP,assinaturasMP,faturasMP,sql,pedidos,async fechar(){await db.close();}};
+    preferencias,pagamentos,planosMP,assinaturasMP,faturasMP,sql,pedidos,
+    async migrar(nome){if(!/^\d+_[a-z_]+\.sql$/.test(nome))throw Error('migração inválida');const texto=await readFile(path.join(raiz,'supabase/migrations',nome),'utf8');await serial(()=>db.exec(texto));},
+    async fechar(){await db.close();}};
 }
